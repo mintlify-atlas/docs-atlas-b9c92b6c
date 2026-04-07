@@ -1,0 +1,145 @@
+---
+title: "Core concepts"
+description: "Key ideas behind harness engineering — the vocabulary you need to read both books."
+---
+
+Harness engineering has its own vocabulary. These concepts recur across both books. Understanding them clearly helps you follow the architectural arguments without getting lost in terminology.
+
+## Harness
+
+A harness is a continuously active control structure that bounds model behavior in engineering environments. It is not a wrapper, not a system prompt, and not a UI layer. It is the full institutional apparatus — prompt layering, query loops, permission systems, state management, recovery paths, verification stages, and team conventions — that keeps an unstable model from causing unbounded consequences in real engineering environments.
+
+The distinction matters: models are unstable by nature. A harness is the engineering response to that fact. Without a harness, risk gets transferred to users, teams, and future maintainers.
+
+> Harness Engineering asks how systems can still behave like engineering systems when models themselves are not reliable.
+
+<CardGroup cols={2}>
+  <Card title="Why Harness Engineering Matters" icon="book" href="/book1/why-harness-engineering">
+    The five harness layers in Claude Code, and why "coding agent" cannot mean "bare model wrapper."
+  </Card>
+  <Card title="Preface: Harness, Terminals, and Engineering Constraints" icon="file-lines" href="/book1/preface">
+    The foundational argument for why constraint structures are the precondition for deploying models in engineering environments.
+  </Card>
+</CardGroup>
+
+## Control plane
+
+The control plane is the layer that defines execution boundaries and failure behavior. In agent systems, it is not a single file or a single prompt — it is a composed structure.
+
+In Claude Code, the control plane includes system prompts assembled in explicit layers (identity, rules, engineering constraints, memory, output style), tool schemas, permission policies, and hook systems. Prompts are part of the control plane, not persona decoration. Together these components define what the agent is allowed to do, how it reports failure, and what rules it defers to when instructions conflict.
+
+Treating prompts as mere "personality" produces systems that perform well rhetorically and behave without discipline. Treating them as part of a runtime control structure produces systems that have accountable behavior.
+
+In Book 2, comparing the control planes of Claude Code and Codex is one of the most revealing axes: Claude Code composes its control plane dynamically at runtime, while Codex modularizes instruction fragments, approval policies, and tool schemas into explicitly typed components.
+
+<CardGroup cols={2}>
+  <Card title="Prompt Is the Control Plane" icon="sliders" href="/book1/prompt-is-control-plane">
+    How prompts are assembled in layers and why they belong to runtime control structure rather than persona design.
+  </Card>
+  <Card title="Two Control Planes" icon="code-branch" href="/book2/two-control-planes">
+    How Claude Code and Codex approach control-plane design differently — prompt assembly versus explicit instruction fragments.
+  </Card>
+</CardGroup>
+
+## Query loop
+
+The query loop is the heartbeat of an agent system. It is the continuous execution loop that manages stateful multi-turn execution — and it is what makes Claude Code a runtime rather than just a sequence of API calls.
+
+The query loop carries state across turns: messages, tool-use context, compact tracking, token recovery counts, turn counts, and transition flags. Once a system is designed this way, it formally admits that unresolved conditions from one turn enter the next, and the system must handle them. That is the core harness mindset: does the system have a budget concept? A recovery concept? A self-rescue mechanism after context expansion? Can a task continue after a tool failure?
+
+Without a query loop, a system may demo well but is not a runtime. It is a single-shot responder.
+
+<CardGroup cols={2}>
+  <Card title="Query Loop: The Heartbeat" icon="rotate" href="/book1/query-loop-heartbeat">
+    How stateful multi-turn execution works and why the loop is the fundamental unit of agent runtime.
+  </Card>
+  <Card title="Where the Heartbeat Lives" icon="heart-pulse" href="/book2/loop-thread-and-rollout">
+    Query loop compared with thread, rollout, and state — how Claude Code and Codex handle continuity differently.
+  </Card>
+</CardGroup>
+
+## Tool permissions
+
+Tools are managed execution interfaces, not natural extensions of model capability. Once a model can touch shell, Git, filesystems, and networks, the question shifts from "can it say it" to "can it leave consequences." Tools must therefore be scheduled, authorized, interruptible, and ledger-closed.
+
+Claude Code distinguishes between concurrency-safe and unsafe tool calls, running them in batches or serially according to their properties. Bash receives the strictest constraints because it has the least domain boundary — it can touch files, processes, networks, and Git repositories directly. The stronger the capability, the finer the control.
+
+A tool system without scheduling discipline amplifies model instability into the external world. Unconstrained parallelism increases blast radius.
+
+<CardGroup cols={2}>
+  <Card title="Tools, Permissions, and Interrupts" icon="shield-halved" href="/book1/tools-permissions-interrupts">
+    Why agents cannot touch the world directly — scheduling, authorization, and blast radius control.
+  </Card>
+  <Card title="Tools, Sandboxes, and Policy Languages" icon="lock" href="/book2/tools-sandbox-and-exec-policy">
+    How Claude Code and Codex approach tool governance differently — runtime approval versus policy language and exec policy.
+  </Card>
+</CardGroup>
+
+## Context governance
+
+Context is working memory, not a junk drawer. Being able to fill a context window does not mean you should. Long-lived rules, persistent memory, session continuity, and temporary dialogue serve different purposes and should be governed in separate layers.
+
+Context governance in Claude Code involves `CLAUDE.md` for persistent team rules, memory files for session-level state, compact operations to preserve semantic substrate for continued work, and budget constraints to prevent context from becoming bloated to the point of weakening working semantics. Good context management optimizes not for "more" but for "governable."
+
+A common failure mode in agent systems is stacking bootstrap text, identity files, skill catalogs, and workspace prose into prompt context and treating that fullness as a feature. In practice, it often points to an intermediate state that has not yet truly governed context.
+
+<CardGroup cols={2}>
+  <Card title="Context Governance: Memory, CLAUDE.md, and Compact" icon="database" href="/book1/context-memory-compact">
+    Context as a resource with budget governance — memory, CLAUDE.md, and compact as a budgeting regime.
+  </Card>
+  <Card title="Skills, Hooks, and Local Governance" icon="gear" href="/book2/skills-hooks-and-local-governance">
+    How each system learns local discipline — field memory versus structured injection and event systems.
+  </Card>
+</CardGroup>
+
+## Error recovery
+
+Error paths are main paths, not exceptional cases. In long-session agent systems, failures are structurally present: models hit token limits, trigger prompt-too-long conditions, hit max output tokens, face tool denial, encounter user interrupts, and fall into hook loops. If these are handled as afterthought `catch` blocks, the system looks alive while constantly rolling trouble forward.
+
+Recovery must be designed as a first-class path at design time. The key questions are: when should the system retry, when should it circuit-break, when should it terminate, and how should it report failure accurately? A system that can apologize is not necessarily mature. A system that knows when not to start is closer.
+
+Recovery should also optimize for continuation: after truncation, continuation is usually better than recap. True engineering politeness is not trapping users inside failure states.
+
+<CardGroup cols={2}>
+  <Card title="Errors and Recovery" icon="arrows-rotate" href="/book1/errors-and-recovery">
+    Building agent systems that keep working after failure — recovery paths, circuit breakers, and anti-loop guards.
+  </Card>
+</CardGroup>
+
+## Multi-agent verification
+
+Multi-agent work matters primarily because it partitions uncertainty. Placing research, implementation, verification, and synthesis into different responsibility containers isolates state, separates roles, and lets a coordinator reconverge understanding. The real value of multi-agent parallelism is not speed alone but sharper responsibility boundaries.
+
+The critical constraint: verification must be independent. Implementers naturally overtrust their own changes, and models do so even more. For important work, verification should be a dedicated independent phase with independent role ownership. Blending synthesis and verification into one vague "multi-agent" mechanism defeats the purpose. Without independent verification, "done" quickly degrades into "written and feels fine."
+
+<CardGroup cols={2}>
+  <Card title="Multi-Agent Work and Verification" icon="people-arrows" href="/book1/multi-agent-and-verification">
+    Managing instability through division of labor — role partitioning and why verification must be independent.
+  </Card>
+  <Card title="Delegation, Verification, and Persistent State" icon="clipboard-check" href="/book2/delegation-verification-and-state">
+    How Claude Code and Codex approach multi-agent verification differently — runtime role partitioning versus explicit delegation and trackable verification.
+  </Card>
+</CardGroup>
+
+## Team institutions
+
+An expert can tame an agent by personal experience. A team cannot rely on that. Individual tricks do not scale — they disappear when the person leaves and cannot be audited. Team institutions are the structures that convert personal technique into organizational capability.
+
+In Claude Code, team institutions take the form of layered `CLAUDE.md` files, explicit approval boundaries, executable skills, lifecycle hooks, traceable transcripts, and unified verification definitions. These are not bureaucratic overhead. They are what allows a team to turn agent behavior from unpredictable to governable.
+
+If a team cannot turn individual experience into reusable rules, it will struggle to turn an agent into a stable system.
+
+<CardGroup cols={2}>
+  <Card title="Team Adoption" icon="people-group" href="/book1/team-adoption">
+    Turning a smart tool into a reusable institution — how personal technique becomes team-level harness discipline.
+  </Card>
+  <Card title="Ten Principles of Harness Engineering" icon="list-check" href="/book1/ten-principles">
+    The consolidated engineering positions from Book 1 — including the role of institutions in the final principle.
+  </Card>
+</CardGroup>
+
+---
+
+<Info>
+These concepts are interconnected — the control plane defines what the query loop executes, tool permissions constrain what the loop can touch, context governance determines what the loop can remember, and error recovery determines what the loop does when things go wrong. For the full reading sequence, see [reading paths](/reading-paths).
+</Info>

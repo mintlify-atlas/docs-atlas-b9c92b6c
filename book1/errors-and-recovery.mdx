@@ -1,0 +1,171 @@
+---
+title: "Errors and recovery: an agent system that keeps working after failure"
+description: How to build agent systems with resilient recovery paths, circuit breakers, and continuation strategies
+---
+
+The least trustworthy sentence in engineering is "under normal conditions." Agent systems in real runtime see truncated models, requests that are too long, hooks creating loops, interrupted tools, triggered fallbacks, and recovery logic that itself fails. Maturity cannot be judged by how the system behaves in smooth scenarios — it must be judged by whether failures look like system behavior.
+
+Claude Code's approach treats errors as part of the main path, not rare exceptions. Recovery is a predesigned runtime mechanism, not an afterthought.
+
+> **Source references**: `src/query.ts`, `src/services/compact/autoCompact.ts`, `src/services/compact/compact.ts`
+
+---
+
+## Error types and recovery strategies
+
+<AccordionGroup>
+  <Accordion title="Prompt too long" icon="text-size">
+    For long-session agents, `prompt too long` is not an edge case — it is a season that eventually arrives. Treating it as a rare exception is an invitation to be corrected by production.
+
+    `query.ts` does not surface this error immediately. During streaming, the runtime withholds it and routes it to a layered recovery sequence:
+
+    1. **Collapse drain first**: if context collapse is enabled, call `recoverFromOverflow()` to flush staged collapse — cheaper and less destructive
+    2. **Reactive compact second**: only if drain is insufficient, call `reactiveCompact.tryReactiveCompact()` for full compaction
+
+    This sequence is deliberate. Good recovery does not hit every error with one giant hammer. It preserves fine-grained context first and escalates only when required.
+
+    Once `hasAttemptedReactiveCompact` is set, the same-class failure does not trigger another blind retry. If compact did not help, repeating compact replays the same failure in a different posture.
+
+    **When compact itself fails**: `compact.ts` includes `truncateHeadForPTLRetry()` — when the compact request hits `prompt too long`, the system strips older API rounds in chunks from the head and retries. This last-resort escape hatch is lossy and may drop history, but it prioritizes not deadlocking the user over preserving high-fidelity history.
+  </Accordion>
+  <Accordion title="Max output tokens" icon="scissors">
+    Many systems handle truncation with polite waste: "Sorry, I was cut off, let me summarize." Claude Code's behavior is far more engineering-aligned.
+
+    The recovery sequence (from `src/query.ts:1185`):
+
+    1. **Raise the cap first**: if the current limit is conservative, increase `maxOutputTokensOverride` and rerun the same request — no meta message, no courtesy preface, just one more chance to finish the task
+    2. **Continuation prompt second**: if a higher cap still fails, append a concise meta user message: continue directly; no apology; no recap; if cut mid-sentence, continue from that half-sentence; split remaining work into smaller chunks
+
+    This treats recovery as preserving task continuity, not preserving social polish. Each truncation recap burns additional budget and increases semantic drift. Eventually the system spends turns recapping itself instead of doing the task.
+
+    After truncation, **continuation is almost always better than summary**.
+  </Accordion>
+  <Accordion title="Hook loops" icon="rotate">
+    Stop hooks that run after unrecoverable states can create death spirals:
+
+    ```
+    error → hook blocking → retry → error → hook blocking
+    ```
+
+    This is not a theoretical concern — it is a documented failure mode in `query.ts` source comments. The most dangerous errors are often branches where failure and recovery start reproducing each other.
+
+    When `prompt too long` cannot recover, Claude Code surfaces the error directly and **skips stop hooks**. Continuing formal process there only ritualizes failure. Recovery systems must know when to abandon their own procedures.
+  </Accordion>
+  <Accordion title="Compact failure" icon="triangle-exclamation">
+    There is a layer of black humor here: the system sends a summary request to reduce context, then the summary request fails because context is too large.
+
+    `autoCompact.ts` addresses this through `AutoCompactTrackingState`, which tracks `consecutiveFailures`. Once failures exceed `MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3`, the circuit breaker activates: even if `shouldAutoCompact` indicates compact is due, the system skips it.
+
+    The source notes this design arose from a hard lesson — large numbers of API calls were once wasted on repeated autocompact failure before the circuit breaker was added.
+
+    **Circuit breaking means admitting the current recovery method is ineffective in the current state.** Mature systems must not only record success metrics; they must know when to back off under repeated failure.
+  </Accordion>
+  <Accordion title="Interrupts and aborts" icon="hand">
+    Many teams classify aborts under UX only. Runtime-wise, interrupts are semantic failure states requiring closure — not merely "user stopped reading."
+
+    Claude Code handles this at two layers:
+
+    **During streaming interrupt** (`query.ts`): the runtime consumes `StreamingToolExecutor.getRemainingResults()` and synthesizes tool results for issued-but-unfinished tool calls, preventing dangling commitments.
+
+    **During compact abort** (`compact.ts`): the compact abort controller is passed into forked agents, and `APIUserAbortError` is handled explicitly — preventing a user Esc from being counted as a successful summary.
+
+    Interruption is a state transition requiring correct closure. Error recovery that handles exceptions but ignores interruption leaves semantically half-broken execution traces.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Recovery decision flow
+
+<Warning>
+Recovery logic that has no loop guards, counters, or circuit breakers will eventually consume more resources fixing failures than the original work cost. Every automated recovery path must be countable, rate-limited, and breakable.
+</Warning>
+
+<Steps>
+  <Step title="Withhold before surfacing">
+    When `query.ts` encounters a recoverable error class during streaming, it withholds the error rather than surfacing it immediately. Recoverable classes include: prompt too long, media size error, and max output tokens.
+
+    Users care less about the raw error type than whether work can continue. Withholding creates space for the recovery branch to resolve the problem transparently.
+  </Step>
+  <Step title="Try the cheapest recovery first">
+    Layer recovery paths ordered by cost and destructiveness. For `prompt too long`: drain staged collapse before triggering reactive compact. For `max output tokens`: raise the cap before falling back to a continuation prompt.
+
+    Hitting every failure with the heaviest recovery tool wastes budget and may cause collateral state loss.
+  </Step>
+  <Step title="Guard against self-loops">
+    Track whether a recovery action has already been attempted. `hasAttemptedReactiveCompact` prevents repeated compact on the same failure class. Stop-hook guards prevent the hook system from re-entering a broken execution state.
+
+    Check: does your recovery logic know it has already run?
+  </Step>
+  <Step title="Apply circuit breakers for automated recovery">
+    Count consecutive failures. When the count exceeds the threshold (`MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3` for autocompact), break the circuit and skip the recovery action entirely.
+
+    Recovery systems without brakes are vehicles without brakes.
+  </Step>
+  <Step title="Surface the error with narrative intact">
+    When recovery is exhausted, surface the error directly. Preserve fields like `transition.reason`, `maxOutputTokensRecoveryCount`, compact boundaries, and synthetic error messages so that the system can still explain what it attempted, why it failed, which recovery path was used, and whether it is continuing, stopping, or rerouting.
+  </Step>
+</Steps>
+
+---
+
+## Failure modes to avoid
+
+<Warning>
+**Polite recap after truncation** burns additional context budget and increases semantic drift. Each "Sorry, I was cut off — let me summarize" recap costs tokens that should go toward completing the task. After truncation, prefer direct continuation.
+</Warning>
+
+<Warning>
+**Unguarded hook execution after unrecoverable errors** can produce death spirals where error and recovery reproduce each other indefinitely. When a failure state cannot be recovered, skip downstream hooks that assume successful execution.
+</Warning>
+
+<Warning>
+**Unbounded retry loops in automated recovery** — whether for compact, reactive compact, or tool retries — must have counters and circuit breakers. Sessions that burned large numbers of API calls on repeated autocompact failure were the direct motivation for the `MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES` circuit breaker in Claude Code.
+</Warning>
+
+---
+
+## Narrative consistency as a reliability signal
+
+Taken together, Claude Code's recovery philosophy has one core and often overlooked goal: **preserve narrative consistency of execution**.
+
+Execution narrative means the system can still explain:
+
+- what it attempted
+- why it failed
+- which recovery path was used
+- whether it is now continuing, stopping, or rerouting
+
+Fields like `transition.reason`, `maxOutputTokensRecoveryCount`, `hasAttemptedReactiveCompact`, compact boundaries, and synthetic error messages in `query.ts` all exist to keep this narrative unbroken. They are anti-amnesia mechanisms for runtime.
+
+Without narrative consistency, systems may continue outputting text while internally decomposing: users see extra filler today, operators see hook-retry and compact-retry loops with unclear causality tomorrow, and teams cannot explain what the system actually went through later.
+
+Recovery fixes not only errors but system self-explainability. Once explainability breaks, an engineering object degrades into opaque magic.
+
+**The sixth principle**: an agent system shows its reliability by maintaining explainable, bounded, and resumable execution order after failure.
+
+---
+
+## Portable engineering principles
+
+Drawn from `query.ts`, `autoCompact.ts`, and `compact.ts`:
+
+- Layer recovery paths — avoid one heavy hammer for all failures
+- Recovery logic itself must be loop-safe
+- Automated recovery needs counters and circuit breakers
+- After truncation, continuation is usually better than summary
+- Interruptions are semantic failure states requiring closure
+- Reliability is proven by whether the system can still explain itself after errors
+
+---
+
+## Continue reading
+
+<CardGroup cols={2}>
+  <Card title="Context governance" icon="database" href="/book1/context-memory-compact">
+    How Claude Code manages context as a budgeting regime — memory layers, CLAUDE.md, and the compact mechanism.
+  </Card>
+  <Card title="Multi-agent and verification" icon="sitemap" href="/book1/multi-agent-and-verification">
+    When one agent delegates to another, error and recovery become organizational design problems.
+  </Card>
+</CardGroup>

@@ -1,0 +1,160 @@
+---
+title: "Ten principles of harness engineering"
+description: The consolidated engineering judgments distilled from Claude Code's architecture — ten principles for building reliable agent systems
+---
+
+Technical writing has a bad habit: after presenting enough detail, it avoids making judgments, as if showing complexity exempts conclusion responsibility. It does not. Complexity remains complexity, but judgment is still required. Teams carry principles forward, not function names from one source version.
+
+Across the previous eight chapters, one fact kept returning: models are unreliable, but systems can still be reliable if reliability is built into the harness rather than delegated to the model.
+
+These ten principles are not slogans. They come from working judgments reflected in Claude Code's source and engineering structure. They compress the whole book.
+
+## The ten principles
+
+<AccordionGroup>
+  <Accordion title="1. Treat models as unstable components, not teammates">
+    Teammates can be trusted with stable responsibility. Models cannot.
+
+    Models may speak like teammates, but they do not automatically gain teammate-grade stability, accountability, or sustained judgment. The earlier this is acknowledged, the earlier systems grow the things that actually produce reliability: permission boundaries, recovery paths, verification gates, and rollback ability.
+
+    The failure mode of the opposite belief is systems that assume model output is authoritative, skip independent verification, and have no recovery path when the model produces something wrong or dangerous. That failure is not a model problem — it is a harness design problem.
+
+    Every other principle in this list flows from this one. If you genuinely treat the model as an unstable component, the right design decisions follow naturally. If you treat it as a reliable teammate, the temptation to skip the harder structural work is always present.
+
+    **Source grounding:** `src/query.ts` — the query loop is designed around the assumption that model output requires governance at every stage, not just trust.
+  </Accordion>
+
+  <Accordion title="2. Prompt is part of the control plane">
+    System prompts define behavioral protocol. Together with runtime, tool schema, memory, and hooks, they form the control plane.
+
+    If prompt is treated as persona decoration — a way to give the model a personality and some general direction — you get systems that perform well rhetorically and behave without discipline. The model sounds right, but there is no structural enforcement behind the words.
+
+    When prompt is treated as a control-plane component, it carries explicit duties: identity, behavior rules, tool constraints, output discipline, and precedence ordering. Dangerous operations and verification requirements are written as explicit rules, not vague hints. The prompt is maintained like infrastructure, not improvised like a cover letter.
+
+    A practical test: if removing one section causes structural behavior change, that section is likely true control-plane logic. If behavior barely changes, it may be decoration.
+
+    **Source grounding:** `src/constants/prompts.ts`, `src/utils/systemPrompt.ts`, `src/utils/claudemd.ts` — layered system-prompt assembly with explicit section organization and `CLAUDE.md` as a control-plane input.
+  </Accordion>
+
+  <Accordion title="3. Query loop is the heartbeat of agent systems">
+    Real agents depend on continuous execution loops. Input governance, stream consumption, tool scheduling, recovery branches, and stop conditions all belong to the heartbeat.
+
+    Without a real query loop, systems may demo well but are not runtimes. A demo can treat each turn as isolated Q&A and hide the absence of any cross-turn state. A runtime must maintain a state object that records recovery state, budget, compaction, hooks, and turn counters across the full session.
+
+    The query loop is also where the model is positioned correctly: not as topmost or bottommost, but as one phase inside a larger cycle that governs input before the model sees it, consumes streaming output as events rather than prose blobs, schedules tools through a safe orchestration layer, and branches on recovery when errors occur.
+
+    **Source grounding:** `src/query.ts` and `src/QueryEngine.ts` — state-machine properties of the query loop, input governance before model invocation, streaming event consumption, recovery branches, and QueryEngine ownership of conversation lifecycle.
+  </Accordion>
+
+  <Accordion title="4. Tools are managed execution interfaces">
+    Once models touch shell, filesystem, Git, and networks, the question shifts from "can it say it" to "can it leave consequences."
+
+    Therefore tools must be scheduled, authorized, interruptible, and ledger-closed. Every tool call passes through unified orchestration rather than direct model invocation. Concurrency requires explicit safety proof rather than default allowance. High-risk tools — especially Bash — are treated as special cases rather than identical to ordinary capability.
+
+    The execution ledger is critical: interrupted tool calls must be closed with synthetic results to keep the causal chain intact and avoid dangling `tool_use` blocks. A system where Bash and a read-only tool are governed almost identically has insufficient risk understanding.
+
+    Interrupts, fallbacks, and sibling failures must all produce explicit closure semantics. The model should never be left waiting for a tool result that will never come.
+
+    **Source grounding:** `src/services/tools/toolOrchestration.ts`, `src/services/tools/StreamingToolExecutor.ts`, `src/tools/BashTool/bashPermissions.ts` — tool scheduling, `allow / deny / ask` semantics, streaming-tool interruption and synthetic closure, and special high-pressure governance for Bash.
+  </Accordion>
+
+  <Accordion title="5. Context is working memory">
+    Being able to stuff context does not mean context should be stuffed.
+
+    Long-lived rules, persistent memory, session continuity, and temporary dialogue should be governed in layers. Each layer has a different scope, a different audience, and a different token budget. When layers collapse — when everything is dumped into one flat context — the system can no longer distinguish what is foundational from what is transient.
+
+    Compact exists to preserve semantic substrate for continued work, not simply to discard old tokens. After compaction, work semantics must be restored: plans, active skills, key files, tool state. A compact that destroys working context is worse than no compact at all.
+
+    Good context management optimizes not for "more," but for "governable." Systems with good context governance often look somewhat frugal. That frugality is usually a strength.
+
+    **Source grounding:** `src/utils/claudemd.ts`, `src/memdir/memdir.ts`, `src/services/compact/autoCompact.ts`, `src/services/compact/compact.ts` — layered context loading, `MEMORY.md` as entry index rather than content warehouse, autocompact thresholds and circuit breaker, post-compact reconstruction.
+  </Accordion>
+
+  <Accordion title="6. Error paths are main paths">
+    Prompt-too-long, max-output-tokens, interrupts, hook loops, and compact failures are ordinary weather for long-session agents. They are not edge cases to handle after the fact.
+
+    Recovery, circuit breaking, retry limits, and anti-loop guards must exist at design time, not as post-incident patches. Recovery design has two common failure modes: no design, and dead-loop design. A recovery system that never stops can be as dangerous as a recovery system that never starts.
+
+    Recovery paths should be layered from low-destructiveness to high-destructiveness. Guards must prevent reactive-compact, stop-hook, and retry loops from triggering each other. Interrupts must be treated as failure states requiring semantic closure, not just ignored.
+
+    The key insight is framing: error paths are not exceptional. They are part of the main execution model.
+
+    **Source grounding:** `src/query.ts` — recoverable errors withheld before surfacing; `src/services/compact/autoCompact.ts` — autocompact failure circuit breaking; `src/services/api/withRetry.ts` — retry counters and caps.
+  </Accordion>
+
+  <Accordion title="7. Recovery should optimize for continuation">
+    After truncation, continuation is usually better than recap. When compaction fails, first restore breathing room.
+
+    The reason is practical: a recap forces the model to reconstruct context from its own summary, which is lossy and potentially incorrect. Continuation from the last coherent state preserves more of the actual working context.
+
+    True engineering politeness is not trapping users inside failure states. When something goes wrong, the system's job is to return to a state where useful work can continue — not to present an elaborate failure report that blocks all further progress.
+
+    This principle also applies to the user experience of interrupts and errors. The right recovery path is the one that gets back to productive work fastest while maintaining semantic integrity.
+
+    **Source grounding:** `src/query.ts` — `max_output_tokens` escalation and continuation strategy; compact rebuilds prioritizing work-semantic restoration over raw token recovery.
+  </Accordion>
+
+  <Accordion title="8. Multi-agent matters because it partitions uncertainty">
+    Multi-agent places research, implementation, verification, and synthesis into different responsibility containers. State is isolated, roles are separated, and a coordinator reconverges understanding.
+
+    The real value of parallelism is not speed alone, but sharper responsibility boundaries. When everything happens in one context, it is impossible to distinguish what the implementation agent concluded from what the verification agent found. When roles are separated, accountability is clearer.
+
+    If a system claims multi-agent but all agents do similar work and nobody owns synthesis or verification, it is usually parallelized disorder. The coordinator must truly synthesize rather than only forward worker output. Parent abort must propagate to children to prevent orphan tasks.
+
+    **Source grounding:** `src/utils/forkedAgent.ts` — cache-safe fork parameters and state isolation; `src/coordinator/coordinatorMode.ts` — coordinator synthesis responsibility; `src/tasks/LocalAgentTask/LocalAgentTask.tsx` — task cleanup and parent-child abort propagation.
+  </Accordion>
+
+  <Accordion title="9. Verification must be independent">
+    Implementers naturally overtrust their own changes. Models do so even more.
+
+    For important work, verification should be a dedicated independent phase, ideally with independent role ownership. Otherwise "done" quickly degrades into "written and feels fine." The model that wrote the code is the worst possible verifier of that same code — it has already convinced itself the approach is correct.
+
+    Independent verification means: the verifying agent or process does not share the implementation agent's context, assumptions, or motivations. It checks what was actually produced, not what the implementation agent intended to produce.
+
+    This is why the coordinator pattern separates verification into its own stage, why stale-memory verification discipline matters, and why the checklist principle "design verification before delivery" comes before almost everything else.
+
+    **Source grounding:** `src/skills/bundled/verify.ts` — verification as a dedicated independent skill; `src/coordinator/coordinatorMode.ts` — coordinator mode with separate verification stage; `src/memdir/memoryTypes.ts` — stale-memory verification discipline.
+  </Accordion>
+
+  <Accordion title="10. Team institutions matter more than personal tricks">
+    An expert can tame an agent through experience and constant attention. A team cannot rely on that.
+
+    Teams need institutions: structures that make correct behavior the default for ordinary contributors, not just for experts who understand the internals. The components of institutional harness are:
+
+    - **Layered `CLAUDE.md`** — stable rules encoded at the right scope, not personal knowledge in someone's head
+    - **Explicit approval boundaries** — risk tiers that any team member can understand and follow, not ad hoc authority granted by whoever happens to be watching
+    - **Executable skills** — recurring workflows packaged with explicit tool scope, verification steps, and expected outputs
+    - **Lifecycle hooks** — timing-bound governance that fires automatically, not reminders that depend on someone remembering
+    - **Traceable transcripts** — replay evidence that any team member can read, not institutional memory that lives only with senior engineers
+    - **Unified verification definitions** — shared standards for done, not individual judgment calls
+
+    Only when personal technique is institutionalized can agent systems become organizational capability rather than personal craft.
+
+    **Source grounding:** `src/utils/claudemd.ts`, `src/tools/SkillTool/SkillTool.ts`, `src/utils/hooks/hooksConfigManager.ts`, `src/main.tsx` — the full team governance stack.
+  </Accordion>
+</AccordionGroup>
+
+## One final compression
+
+If all ten principles must be compressed further, three survive:
+
+1. **Harness over excitement** — structural reliability matters more than impressive demos
+2. **Institutions over cleverness** — team-operable systems outlast individual expertise
+3. **Verification over confidence** — independent checking is worth more than the model's self-assessment
+
+Teams that internalize these three are standing at the door of Harness Engineering.
+
+<Note>
+  Harness Engineering is about: keeping system behavior reliable even when the model is not.
+</Note>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Previous: Team adoption" href="/book1/team-adoption">
+    How to turn individual expertise into sustainable team workflow
+  </Card>
+  <Card title="Next: Checklists" href="/book1/checklists">
+    Practical checklists for applying harness engineering principles in real teams
+  </Card>
+</CardGroup>

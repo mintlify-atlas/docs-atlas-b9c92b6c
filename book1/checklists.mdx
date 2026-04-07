@@ -1,0 +1,315 @@
+---
+title: "Checklists: turning principles into executable constraints"
+description: Practical checklists from Appendix A for applying harness engineering principles in real teams
+---
+
+Principles without checklists often decay into judgments that sound right but do not hold up in practice. These checklists turn easy-to-say, hard-to-sustain judgments into directly usable lists.
+
+They do not guarantee automatic improvement. They mainly prevent common and repetitive mistakes from recurring. In engineering, many improvements come from repeating fewer avoidable errors.
+
+<Note>
+  If a checklist item cannot be answered clearly, the system is likely still in "demo-capable" stage rather than "workflow-capable" stage.
+</Note>
+
+## Checklists by harness layer
+
+<AccordionGroup>
+  <Accordion title="Agent runtime design">
+    If an AI coding agent is going into a real engineering workflow, it should answer at least:
+
+    - Is there an explicit query loop instead of treating each turn as isolated Q&A?
+    - Is there a cross-turn state object recording recovery, budget, compaction, hooks, and turn counters?
+    - Is model output handled as an event stream instead of a final prose blob?
+    - Can interrupted tool calls be closed with synthetic results to keep the execution ledger complete?
+    - Are completion, failure, recovery, and continuation modeled as distinct stop semantics?
+    - Is there context budgeting for long sessions, rather than ad hoc emergency handling only after overflow?
+
+    <Warning>
+      If two or three of these cannot be answered clearly, the system is likely still in "demo-capable" stage rather than "workflow-capable" stage.
+    </Warning>
+
+    **Grounded in:** Chapter 3 (query loop as heartbeat) and Chapter 6 (error paths as main paths).
+  </Accordion>
+
+  <Accordion title="Prompt design">
+    System prompt should not be merely long. It should be layered with explicit duties.
+
+    At minimum, check:
+
+    - Are identity, behavior rules, tool constraints, and output discipline organized separately?
+    - Is prompt source precedence explicit (default, project, custom, append, agent-specific)?
+    - Are dangerous operations, unauthorized behavior, and verification discipline written as explicit rules rather than vague hints?
+    - Is prompt prevented from carrying duties that belong to runtime enforcement?
+    - Can the team maintain it stably, rather than appending emergency text after every bug?
+
+    **Practical test:** If removing one section causes structural behavior change, that section is likely true control-plane logic. If behavior barely changes, it may be decoration.
+
+    **Grounded in:** Chapter 2 (prompt as control plane) and Principle 2.
+  </Accordion>
+
+  <Accordion title="Tool and permission design">
+    Any system that lets models touch the world should ask first:
+
+    - Do tool calls pass through unified orchestration rather than direct model invocation?
+    - Does concurrency require explicit safety proof rather than default allowance?
+    - Is there semantic branching — `allow / deny / ask`?
+    - Are high-risk tools treated as special cases rather than identical to ordinary tools?
+    - Can interrupts, fallbacks, and sibling failures produce explicit closure semantics?
+    - Can execution preserve the causal chain and avoid dangling `tool_use` blocks?
+
+    <Warning>
+      If Bash and a read-only tool are governed almost identically, risk understanding is usually insufficient.
+    </Warning>
+
+    **Grounded in:** Chapter 4 (tools, permissions, and interrupts) and Principle 4.
+  </Accordion>
+
+  <Accordion title="Context governance">
+    Any long-session agent will eventually be disciplined by context limits. Early governance is cheaper.
+
+    At minimum, check:
+
+    - Are long-lived rules, persistent memory, session continuity, and temporary dialogue layered separately?
+    - Is there explicit separation between entrypoint files and body files to prevent index bloat?
+    - Are there token budgets for memory, session memory, and skill attachments?
+    - Is compact output space pre-reserved instead of waiting until the window is full?
+    - After compact, are work semantics restored — plans, skills, key files, tool state?
+    - Is there a recovery strategy when compact itself fails?
+
+    <Tip>
+      Systems with good context governance often look somewhat frugal. That frugality is usually a strength.
+    </Tip>
+
+    **Grounded in:** Chapter 5 (context governance) and Principle 5.
+  </Accordion>
+
+  <Accordion title="Error recovery">
+    Recovery design has two common failure modes: no design, and dead-loop design.
+
+    At minimum, check:
+
+    - Are recoverable errors routed to recovery branches before being surfaced immediately?
+    - Are recovery paths layered from low-destructiveness to high-destructiveness?
+    - Are there guards preventing reactive-compact, stop-hook, and retry loops from triggering each other?
+    - After `max_output_tokens`, is continuation prioritized over recap?
+    - Do automated recoveries include counters, retry caps, and circuit breakers?
+    - Are interrupts treated as failure states requiring semantic closure?
+
+    <Warning>
+      A recovery system that never stops can be as dangerous as a recovery system that never starts.
+    </Warning>
+
+    **Grounded in:** Chapter 6 (errors and recovery) and Principles 6 and 7.
+  </Accordion>
+
+  <Accordion title="Multi-agent design">
+    Multi-agent design should organize uncertainty, not multiply confusion.
+
+    Check:
+
+    - Does fork design preserve prompt-cache consistency through cache-safe parameters?
+    - Is mutable state isolated by default for child agents?
+    - Are research, implementation, verification, and synthesis roles explicitly separated?
+    - Does the coordinator truly synthesize instead of only forwarding worker output?
+    - Is verification independent from implementation?
+    - Is agent lifecycle observable, interruptible, and reclaimable?
+    - Does parent abort propagate to children to prevent orphan tasks?
+
+    <Warning>
+      If a system claims multi-agent but all agents do similar work and nobody owns synthesis or verification, it is usually parallelized disorder.
+    </Warning>
+
+    **Grounded in:** Chapter 7 (multi-agent and verification) and Principles 8 and 9.
+  </Accordion>
+
+  <Accordion title="Team adoption">
+    The most common rollout misread is mistaking personal proficiency for institutional maturity.
+
+    Before rollout, verify:
+
+    - Is layered `CLAUDE.md` in place, with clear guidance on what belongs and what does not?
+    - Is verification definition standardized before scaling skill volume?
+    - Are approval boundaries tiered by consequence and environment sensitivity?
+    - Are key institutions attached to appropriate hook timing instead of stuffed into static docs?
+    - Are transcript, task output, and hook events retained as replay evidence?
+    - Is there a maintenance policy for stale memory, obsolete rules, and invalid skills?
+
+    <Check>
+      Teams that can sustainably use agents are usually teams where ordinary members can operate correctly within institutions — not teams that depend on a few experts.
+    </Check>
+
+    **Grounded in:** Chapter 8 (team adoption) and Principle 10.
+  </Accordion>
+</AccordionGroup>
+
+## Review question set
+
+To review any AI coding-agent proposal, ask directly:
+
+- Which behaviors are constrained by prompt and which are enforced by runtime?
+- Who blocks tool misuse, and at what layer?
+- When is context compacted, and how are work semantics reconstructed afterward?
+- How are `prompt-too-long` and `max_output_tokens` recovered differently?
+- After interruption, how is transcript consistency maintained with tool results?
+- In multi-agent flows, who owns synthesis and who owns verification?
+- Does failure recovery include circuit breakers and anti-loop guards?
+- How does the team audit what the agent did and why?
+
+<Warning>
+  If answers frequently reduce to "we can add that later," the runtime is likely not truly designed yet.
+</Warning>
+
+## The six that matter most
+
+If everything above feels too long, keep these six:
+
+- Design permission before capability
+- Design rollback before autonomy
+- Design verification before delivery
+- Design context budgets before long dialogue
+- Design lifecycle before multi-agent
+- Design institutions before expecting team proficiency
+
+<Note>
+  Meeting these six does not guarantee excellence. Missing them usually means the system has just not failed yet.
+</Note>
+
+## Diagram descriptions
+
+The following diagrams from Appendix B illustrate the runtime structures described across the book.
+
+<AccordionGroup>
+  <Accordion title="Diagram 1: Claude Code global control plane">
+    A five-layer view of the Claude Code architecture:
+
+    1. **User interaction layer** — the entry point for commands and conversation
+    2. **Control plane layer** — prompt assembly, permission decisions, and rule enforcement
+    3. **Execution loop layer** — the query loop managing model invocation, streaming, and recovery
+    4. **External capability layer** — tools including Bash, filesystem, Git, and network access
+    5. **Persistence and observability layer** — logs, transcripts, hook events, and memory
+
+    The key insight this diagram makes visible: the model is neither topmost nor bottommost. It is one phase inside the execution loop. Control and recovery planes are what hold the system together — not the model itself.
+  </Accordion>
+
+  <Accordion title="Diagram 2: Query loop main cycle and recovery branches">
+    Two diagrams together show the full query loop structure:
+
+    - The **main cycle** covers input governance before model invocation, streaming event consumption, tool scheduling, and normal stop conditions
+    - The **recovery branches** show what happens when errors occur — prompt-too-long, max-output-tokens, tool failures, and interrupt handling — and how the loop returns to a coherent state rather than halting
+
+    Together they make clear why the query loop is described as the heartbeat: the system is always either in the main cycle or in a recovery branch, never simply stopped.
+  </Accordion>
+
+  <Accordion title="Diagram 3: Tool batch ordering and StreamingToolExecutor">
+    Two diagrams covering tool execution:
+
+    - **Tool batch ordering** shows how concurrent tool calls are serialized safely, with context replay ordering that preserves causal consistency
+    - **StreamingToolExecutor lifecycle** shows the full lifecycle of a single tool execution, including the interrupt path and the synthetic closure that keeps the execution ledger consistent when a tool call is stopped
+
+    The diagrams make visible why tool execution is not simple function-calling — it is a managed lifecycle with explicit states.
+  </Accordion>
+
+  <Accordion title="Diagram 4: Context sources and compact rebuild">
+    Two diagrams covering context governance:
+
+    - **Context sources and budget** shows the layered sources feeding the context window — `CLAUDE.md` levels, session memory, skill attachments, and temporary dialogue — and how token budgets are allocated across them
+    - **Compact rebuild pipeline** shows what happens during compaction: which content is preserved as semantic substrate, how work semantics are reconstructed, and what the post-compact state looks like before the session continues
+
+    These diagrams make the cost of poor context governance concrete: without explicit budget allocation, any source can crowd out any other.
+  </Accordion>
+
+  <Accordion title="Diagram 5: Coordinator-worker flow and verification separation">
+    Two diagrams covering multi-agent architecture:
+
+    - **Coordinator and worker flow** shows how the coordinator spawns workers, maintains its own synthesis context, and reconverges results rather than forwarding them
+    - **Verification separation** shows how the verification stage is isolated from the implementation stage — different context, different role, different authority
+
+    Together they illustrate Principle 9: verification is not a final step of implementation, it is an independent phase with independent ownership.
+  </Accordion>
+
+  <Accordion title="Diagram 6: Team governance map">
+    A single diagram mapping the full team governance structure: how `CLAUDE.md` layers connect to skills, how skills connect to hook timing, how approval tiers connect to risk levels, and how transcript tracking connects to the baseline trace layer.
+
+    This diagram translates the institutional adoption path from Chapter 8 into a visual map — showing not just what the components are, but how they connect to each other and which must be in place before others make sense.
+  </Accordion>
+</AccordionGroup>
+
+## Source map
+
+This source map from Appendix C identifies the Claude Code source files that ground each chapter's arguments. It is for analytical reference, not source reproduction.
+
+<AccordionGroup>
+  <Accordion title="Chapters 1–4: Why harness, prompt, query loop, tools">
+    **Chapter 1 — Why harness engineering matters:**
+    `src/constants/prompts.ts`, `src/utils/systemPrompt.ts`, `src/query.ts`, `src/services/tools/toolOrchestration.ts`, `src/tools/BashTool/prompt.ts`
+
+    Core argument basis: prompt as control-plane component rather than personality packaging; query loop as agent-system skeleton; tool and Bash risk profiles as proof harness is necessary.
+
+    ---
+
+    **Chapter 2 — Prompt is the control plane:**
+    `src/constants/prompts.ts`, `src/utils/systemPrompt.ts`, `src/utils/claudemd.ts`, `src/memdir/memdir.ts`, `src/constants/systemPromptSections.ts`, `src/main.tsx`
+
+    Core argument basis: layered system-prompt assembly; `CLAUDE.md` and memory as control-plane inputs; dynamic reminders and context injection.
+
+    ---
+
+    **Chapter 3 — Query loop: the heartbeat:**
+    `src/query.ts`, `src/QueryEngine.ts`
+
+    Core argument basis: state-machine properties of the query loop; input governance before model invocation; streaming event consumption and recovery branches; QueryEngine ownership of conversation lifecycle.
+
+    ---
+
+    **Chapter 4 — Tools, permissions, and interrupts:**
+    `src/services/tools/toolOrchestration.ts`, `src/services/tools/toolExecution.ts`, `src/services/tools/StreamingToolExecutor.ts`, `src/hooks/useCanUseTool.tsx`, `src/utils/permissions/PermissionResult.ts`, `src/tools/BashTool/prompt.ts`, `src/tools/BashTool/bashPermissions.ts`
+
+    Core argument basis: concurrency safety and ordered context replay; wrapped tool execution stack; `allow / deny / ask` authorization semantics; streaming-tool interruption and synthetic closure; special high-pressure governance for Bash.
+  </Accordion>
+
+  <Accordion title="Chapters 5–7: Context, errors, multi-agent">
+    **Chapter 5 — Context governance:**
+    `src/utils/claudemd.ts`, `src/memdir/memdir.ts`, `src/services/SessionMemory/prompts.ts`, `src/services/compact/autoCompact.ts`, `src/services/compact/compact.ts`, `src/query.ts`
+
+    Core argument basis: layered discovery and loading of `CLAUDE.md`; `MEMORY.md` as entry index, not content warehouse; structured continuity in session memory; autocompact thresholds, buffers, and circuit breaker; post-compact reconstruction of working semantics.
+
+    ---
+
+    **Chapter 6 — Errors and recovery:**
+    `src/query.ts`, `src/services/compact/autoCompact.ts`, `src/services/compact/compact.ts`, `src/services/api/withRetry.ts`
+
+    Core argument basis: withheld recoverable errors; prompt-too-long handling via collapse drain and reactive compact; `max_output_tokens` escalation and continuation strategy; autocompact failure circuit breaking; compaction self-recovery under prompt-too-long.
+
+    ---
+
+    **Chapter 7 — Multi-agent and verification:**
+    `src/utils/forkedAgent.ts`, `src/coordinator/coordinatorMode.ts`, `src/tasks/LocalAgentTask/LocalAgentTask.tsx`, `src/utils/hooks/hooksConfigManager.ts`, `src/skills/bundled/verify.ts`, `src/memdir/memoryTypes.ts`
+
+    Core argument basis: cache-safe fork parameters and state isolation; coordinator synthesis responsibility; independent verification stage; subagent lifecycle hooks; task cleanup and parent-child abort propagation; stale-memory verification discipline.
+  </Accordion>
+
+  <Accordion title="Chapters 8–9: Team adoption and ten principles">
+    **Chapter 8 — Team adoption:**
+    `src/utils/claudemd.ts`, `src/tools/SkillTool/prompt.ts`, `src/tools/SkillTool/SkillTool.ts`, `src/utils/forkedAgent.ts`, `src/utils/hooks/hooksConfigManager.ts`, `src/main.tsx`
+
+    Core argument basis: layered stability in team `CLAUDE.md`; skills as institutional slices rather than prompt collections; approval boundaries and allow-rule scoping; lifecycle governance through hooks; session startup behavior around instructions and skill loading.
+
+    ---
+
+    **Chapter 9 — Ten principles:**
+    Chapter 9 is not derived from one single file. It compresses cross-chapter structures jointly reflected in: prompt assembly, query loop, tool orchestration, permission model, context governance, recovery system, multi-agent orchestration, and team governance hooks.
+
+    The ten principles are the book's analytical conclusions, grounded in the source files across all eight preceding chapters.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Previous: Ten principles" href="/book1/ten-principles">
+    The consolidated engineering judgments distilled from Claude Code's architecture
+  </Card>
+  <Card title="Book 2: Comparing harnesses" href="/book2/preface">
+    How Claude Code's design compares to other agent harness architectures
+  </Card>
+</CardGroup>

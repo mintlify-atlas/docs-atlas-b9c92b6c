@@ -1,0 +1,101 @@
+---
+title: "Why we compare Claude Code and Codex"
+description: The engineering motivation behind placing these two agent harnesses side by side
+---
+
+Calling Claude Code and Codex "models that write code" misses the point. The interesting comparison is not "who has more buttons"—it is how each harness admits a fact marketing often disguises: the model cannot be trusted to operate unbounded shell, files, network, or state. It hallucinates, forgets context, and imagines confidence beyond correctness. Once that model touches a terminal, a filesystem, or a multi-round session, the issue is no longer "was the answer right?" but "who cleans up the mess?"
+
+This comparison is about how each harness domesticates unreliability—not about who can hit more commands.
+
+## Two harnesses, same admission
+
+<CardGroup cols={2}>
+  <Card title="Claude Code" icon="terminal">
+    Born from runtime incident pressure. Read `query.ts`, `toolOrchestration.ts`, and `compact.ts`—you see a system that imagines failure, fatigue, and rollback.
+
+    Strengths cluster around the main loop: prompt layering, compacting, permission gating, interrupts, tool orchestration, and forked agent life cycles. Its harness grows out of real shifts, solving "dirty work" through control flow rather than elegant interfaces.
+
+    **Dominant question:** "The model is already cycling. How do we make sure one round doesn't sabotage the next?"
+  </Card>
+  <Card title="Codex" icon="cube">
+    Born from explicit structural design. Its `core/src/lib.rs` shows a deliberate program—threads, rollouts, state bridges, instructions, skills, hooks, sandboxing, exec policy, tools—each one composed into an explicit module.
+
+    Equally honest about model distrust, but expresses it through explicit modules. Instructions appear as typed, bounded fragments. Tools are schema-first objects. Exec policy is a distinct crate with policies, rules, evaluations, and parsers.
+
+    **Dominant question:** "How can control information be turned into explicit, composable structures?"
+  </Card>
+</CardGroup>
+
+Both systems agree that the model cannot be left inhabiting shell, files, permissions, and long conversations on its own. They converge on the acceptance that models are untrustworthy; they diverge in what they build around that admission.
+
+## Why the difference matters
+
+The direction a team takes often determines how its culture evolves.
+
+Emphasize runtime continuity and you will obsess over recovery, interruption, state pollution, tool choreography, and long-session reliability. Emphasize explicit control and you will obsess over instruction boundaries, config hierarchies, tool schemas, policy languages, and persistent thread state.
+
+Both paths are valid. The mistake is mixing them without clarity and losing both runtime discipline and institutional order.
+
+## The five comparison axes
+
+This book unpacks the divergence across five axes. Each represents a layer where the two systems made meaningfully different architectural choices.
+
+<Steps>
+  <Step title="Control plane">
+    **Where is order assembled?**
+
+    Claude Code behaves more like dynamic prompt assembly. A lot of order is packed into runtime prompt composition, session state, and context governance. The control plane is implicit—reconstructed each turn from layered prompts, compacted history, and runtime state.
+
+    Codex behaves more like explicit control-layer engineering. It modularizes and types instruction fragments, approval policies, tool schema, thread, rollout, and hooks as much as possible. The control plane is explicit—you can trace why a fragment is present and programmatically evolve it without rewriting the runtime.
+
+    See [Two Control Planes](/book2/two-control-planes).
+  </Step>
+  <Step title="Continuity">
+    **How does a session survive across turns?**
+
+    Claude Code places continuity in the main loop and emphasizes query-loop heartbeat discipline. The harness is built around keeping one round from sabotaging the next—compacting context, routing tool outputs, managing interrupts, and isolating child agents.
+
+    Codex distributes continuity across thread, rollout, and state bridge, emphasizing structured state ownership and recovery. Continuity is a first-class data structure, not a property of runtime discipline.
+
+    See [Loop, Thread, and Rollout](/book2/loop-thread-and-rollout).
+  </Step>
+  <Step title="Tool governance">
+    **How is tool execution constrained?**
+
+    Claude Code leans toward runtime constraints: approval at call time, interrupts, and preventing risky actions from landing directly. Policy lives in the approval loop, not in a separate artifact.
+
+    Codex leans toward policy language and tool contracts: schema, approval policy, sandbox, and exec policy as explicit organs. A tool's behavior is bounded before it is ever called, through typed contracts that the runtime enforces.
+
+    See [Tools, Sandbox, and Exec Policy](/book2/tools-sandbox-and-exec-policy).
+  </Step>
+  <Step title="Local discipline">
+    **How does the harness absorb team conventions?**
+
+    Claude Code tends to absorb local experience into field memory: `CLAUDE.md`, memory, skills, and workflow constraints. Local knowledge enters the system as prose that the model reads and internalizes during the session.
+
+    Codex tends to mount local institutions onto structured injection and event systems: instructions, skills, hooks, and explicit tool boundaries. Local knowledge enters as typed fragments, attached at known injection points, with explicit precedence rules.
+
+    See [Skills, Hooks, and Local Governance](/book2/skills-hooks-and-local-governance).
+  </Step>
+  <Step title="Multi-agent verification">
+    **How is delegation handled and verified?**
+
+    Claude Code emphasizes multi-agent role partitioning at runtime, and insists verification must be independent from implementation. The multi-agent pattern is primarily about avoiding contaminated judgment—a verifier should not share state with the implementer.
+
+    Codex emphasizes explicit delegation, persistent state, and tool-mediated collaboration so verification becomes a trackable capability, rather than remaining a polite final gesture. Delegation is a structured handoff with typed state, not a runtime fork.
+
+    See [Delegation, Verification, and State](/book2/delegation-verification-and-state).
+  </Step>
+</Steps>
+
+## The take-away
+
+Claude Code and Codex are harness design philosophies, not feature checklists. Identifying where each system places order reveals path dependencies—not rankings.
+
+<Tip>
+  When evaluating a harness (including one you are building yourself), the productive question is not "does it have skills, memory, and multi-agent support?" but "where does this system place order, and what failure modes does that placement leave exposed?" The [Checklists](/book2/checklists) appendix translates this into a practical evaluation framework.
+</Tip>
+
+The remaining chapters take these five axes one at a time, tracing the same engineering concern through both systems to show which choices are shared consensus and which are genuinely different routes to the same destination.
+
+If you only want the synthesis, jump to [Convergence and Divergence](/book2/convergence-and-divergence). If your goal is to build your own harness, go to [How to Choose or Build](/book2/how-to-choose-or-build).

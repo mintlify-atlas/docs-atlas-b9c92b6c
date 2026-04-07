@@ -1,0 +1,154 @@
+---
+title: "Where the heartbeat lives: query loop vs thread, rollout, and state"
+description: "How Claude Code and Codex manage execution continuity differently — Claude Code's query loop vs Codex's thread/rollout/state model"
+---
+
+If you understand an agent system as "multi-turn chat," that is like understanding a database as "a patient notebook." It is not entirely false, but it hides the real architectural problem.
+
+The hard problem in an agent system is **continuity**:
+
+- What happened last turn, and how this turn picks it up
+- How tool results are merged back into the session
+- How interruption gets closed out
+- How overgrown context is reorganized
+- Whether failure should trigger retry, compaction, or faithful reporting
+
+These questions determine whether a system is really an agent, rather than merely a question-answering interface that happens to support tool calls. The difference between Claude Code and Codex here is more revealing than almost any feature table.
+
+## Where continuity lives
+
+<Tabs>
+  <Tab title="Claude Code: the query loop">
+    Claude Code's axis is easy to locate around `query()` and `queryLoop()`. It pushes many crucial issues into loop state:
+
+    - Current message sequence
+    - Tool-use context
+    - Compact tracking
+    - Output-token recovery counters
+    - Pending summaries
+    - Turn counts
+    - Transitions
+
+    Claude Code answers "how does an agent stay alive?" in **runtime terms**. Continuity is maintained mainly by the loop. The skeleton feels more like a conversation engine that keeps correcting itself than a system driven by a strong external state model.
+
+    Much of the real trouble in sessions happens exactly inside the loop: tool-return ordering, abrupt truncation of model output, prompt-too-long events, history snips, microcompact, and user interjections. Claude Code does not avoid these issues — it treats them as **legitimate states inside the loop**.
+
+    That gives the design a rough engineering texture. It is not always elegant, but it is often more robust.
+  </Tab>
+  <Tab title="Codex: thread, rollout, and state">
+    Codex looks more ledger-like. Even from `core/src/lib.rs`, continuity is clearly not concentrated in one large loop. It is distributed across:
+
+    - `codex_thread`
+    - `thread_manager`
+    - `rollout`
+    - `state_db_bridge`
+    - `state`
+    - `message_history`
+
+    In `sdk/typescript/src/thread.ts`, `Thread` is already a first-class concept that outside developers can understand and manipulate directly. A thread has an `id`, can `runStreamed()` or `run()`, and `thread.started` reports back the thread ID.
+
+    Turn-level execution conditions — approval policy, working directory, sandbox mode, network access, and additional directories — are all exposed as **explicit parameters tightly coupled to thread execution**.
+
+    Inside `runStreamedInternal()`, the system first calls `normalizeInput()`, separating prompt text from local images, then creates an output-schema file with `createOutputSchemaFile()`. The actual `_exec.run()` call carries `threadId`, `approvalPolicy`, `sandboxMode`, `workingDirectory`, `networkAccessEnabled`, and `additionalDirectories` as explicit execution parameters.
+
+    Thread is not outer packaging. It is a genuine carrier of turn semantics.
+  </Tab>
+</Tabs>
+
+## State sovereignty
+
+One clarification matters before going further.
+
+<Note>
+Claude Code obviously has state. Codex obviously has loops. The difference is not presence or absence — it is **sovereignty**. Whoever owns continuity defines the center of the harness.
+</Note>
+
+Claude Code gives more sovereignty to the query loop. It treats "how the session continues" as a runtime-core problem, and many issues are meant to be solved directly inside the loop.
+
+Codex gives sovereignty more explicitly to thread and rollout structures. It treats continuity as something that should not remain a by-product of internal control flow — it should become an explicit fact carried by thread and state infrastructure.
+
+That is why `Thread` in the TypeScript SDK already feels like a product concept rather than an implementation detail. Developers are allowed to think about agent turns directly through the thread abstraction. Claude Code's query loop is more like the engine room — you know it matters, but not every user has to organize their mental model explicitly around it.
+
+## Recovery and auditability
+
+Where state sovereignty lives directly affects how the system handles failure and how well it can explain what happened.
+
+<Tabs>
+  <Tab title="Claude Code: proximity to the scene">
+    Claude Code's recovery strength comes from proximity to the scene.
+
+    Many problems are discovered and handled inside the loop itself:
+
+    - Reactive compaction when context grows too large
+    - Output-token recovery when truncation occurs
+    - Tool-interruption cleanup when work halts midway
+
+    The system does not first need to lift the problem into a higher-order state model before deciding what rollback should mean. Recovery is local, fast, and tightly coupled to the live session.
+
+    **Limitation:** Reconstructing exactly what happened in a past turn requires reasoning about loop state at the time — there is no separate archive to consult.
+  </Tab>
+  <Tab title="Codex: traceability by design">
+    Codex's recovery strength appears in traceability.
+
+    Threads have IDs, rollouts have records, and state bridges plus message history provide clearer external structure. The system can answer "What exactly happened last turn?" without relying on runtime recollection alone.
+
+    Reading `core/src/lib.rs` alongside the SDK layer makes the archive-minded design clear. Codex does not merely export `CodexThread` — it also exposes `ThreadManager`, `RolloutRecorder`, `state_db_bridge`, and `message_history`. A system that places those organs near the root module is effectively declaring that continuity is not a side effect of looping. It is infrastructure.
+
+    **Limitation:** The heavier state machinery means more design work upfront and more moving parts to configure and maintain.
+  </Tab>
+</Tabs>
+
+<Note>
+The existence of `rollout` is especially telling: Codex cares deeply about replayability, indexing, persistence, and visibility **outside** the immediate live session. That makes it feel more like a true execution recorder and less like a live conversation manager alone.
+</Note>
+
+## How this changes team interfaces
+
+This architectural difference also changes how teams integrate with the system.
+
+**When sovereignty lives in the loop**, teams naturally organize around runtime questions:
+
+- Which failures need recovery logic
+- Which actions should be interruptible
+- When compaction should trigger
+- How tool results return to the main conversation
+
+**When sovereignty lives in threads and state structures**, teams organize around interface and governance questions:
+
+- What the thread lifecycle is
+- Which events rollout should retain
+- Where the state store lives
+- How approval policy becomes a turn-level option
+
+<Note>
+Claude Code is closer to making the agent operational first and embedding institutions afterward. Codex is closer to defining institutional interfaces first and letting the agent operate inside them.
+</Note>
+
+## Different effects on product continuity
+
+In plain language:
+
+- **Claude Code** is closer to an emergency crew on site — better at keeping execution going in the face of live problems
+- **Codex** is closer to a dispatch center with archives — better at explaining how that continuity was maintained and why decisions were made
+
+Both matter. The question is which failure mode your team is more likely to encounter and least equipped to handle.
+
+If sessions are volatile, unpredictable, and require moment-to-moment adaptation, Claude Code's loop-centric approach is more naturally suited to staying alive. If sessions need to be audited, replayed, or integrated with external governance systems, Codex's thread and rollout infrastructure gives you that substrate.
+
+## Summary
+
+> Claude Code places more of continuity inside the query loop, while Codex places more of continuity inside thread, rollout, and state infrastructure.
+
+The former emphasizes **runtime heartbeat**. The latter emphasizes **a persisted session substrate**.
+
+This is not an aesthetic difference. It is a distribution of system power.
+
+---
+
+**Next:** [Tools, sandboxes, and policy languages](/book2/tools-sandbox-and-exec-policy)
+
+**Previous:** [Two control planes: prompt assembly vs instruction fragments](/book2/two-control-planes)
+
+**Related:**
+- [Book 1: The query loop as heartbeat](/book1/query-loop-heartbeat)
+- [Delegation, verification, and state](/book2/delegation-verification-and-state)

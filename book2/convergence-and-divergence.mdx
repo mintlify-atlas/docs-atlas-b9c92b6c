@@ -1,0 +1,129 @@
+---
+title: "Convergence through different roads, or separate branches"
+description: The final comparative judgment — where Claude Code and Codex agree, where they diverge, and what that means
+---
+
+The book's title question can now be answered directly: **convergence through different roads** — and also **distinct branches of the same larger problem**.
+
+These are not contradictory. They name two different levels of the comparison.
+
+## Where they genuinely converge
+
+Neither Claude Code nor Codex treats the model as an executor worthy of direct trust. Both systems accept:
+
+<CardGroup cols={2}>
+  <Card title="Prompt does not control everything" icon="ban">
+    Neither system relies on prompt instructions as the primary constraint mechanism. The harness — not the prompt — is the true control layer.
+  </Card>
+  <Card title="Tools must be constrained" icon="shield-halved">
+    Direct model access to tools without explicit authorization, sandboxing, and policy is not acceptable in either harness design.
+  </Card>
+  <Card title="Long sessions require state governance" icon="database">
+    Both systems recognize that continuity across a long session cannot be left to model memory alone. State must be managed structurally.
+  </Card>
+  <Card title="Local rules must enter the system" icon="building-columns">
+    Both systems invest in mechanisms — skills, hooks, `CLAUDE.md`, `AGENTS.md` — to make organizational habits structurally present rather than merely advisory.
+  </Card>
+  <Card title="Multi-agent requires role partitioning" icon="people-group">
+    Neither system allows an agent to both implement and certify its own work. Verification independence is a requirement, not a nice-to-have.
+  </Card>
+  <Card title="Harness is the true control layer" icon="sliders">
+    Both have moved beyond the naive stage where stronger models are expected to dissolve systems problems by themselves. The model is the most productive but also most unstable component underneath the harness.
+  </Card>
+</CardGroup>
+
+At the level of direction, they do meet at the same destination. An agent is not merely a chatbot with a few tools attached.
+
+## Where they genuinely branch
+
+It would be far too rough to call them fundamentally identical. The branching lies not in destination but in skeleton.
+
+<Tabs>
+  <Tab title="Claude Code's main axis">
+    Claude Code's architecture reads as:
+
+    - Begin from the query loop
+    - Handle continuity in runtime
+    - Preserve order with compaction, tool orchestration, interrupts, and recovery
+    - Connect field rules and team institutions through skills, hooks, and verification
+
+    This feels like a system grown from mechanical experience — from the accumulated lessons of keeping a live session alive under real conditions. Runtime discipline is primary; institutions exist in service of the live session.
+
+    The strength is field elasticity. The system can absorb new local constraints quickly and recover from interruption without the overhead of explicit state declaration.
+  </Tab>
+  <Tab title="Codex's main axis">
+    Codex's architecture reads as:
+
+    - Begin from explicit module boundaries and explicit control layers
+    - Turn instructions into fragments
+    - Turn tools into schemas
+    - Turn execution boundaries into policy
+    - Turn sessions into thread / rollout / state
+    - Turn local rules and hooks into structured assets and event systems
+
+    This feels like a system grown from institutional design — from the belief that durable governance requires explicit declaration before runtime improvisation. The control layer is primary; runtime operates inside a more explicit framework.
+
+    The strength is organizational durability. Rules are easier to distribute, version, audit, and enforce consistently across teams.
+  </Tab>
+</Tabs>
+
+## Two political forms of harness
+
+<AccordionGroup>
+  <Accordion title="Claude Code as runtime republic" defaultOpen={false}>
+    Claude Code is closer to a **runtime republic**. A great deal of power is concentrated in the main loop and field dispatch, and order is maintained through continuous negotiation with reality.
+
+    It is not anti-institution. Institutions just tend to exist in service of the live session — they are assembled at the point of execution, not declared in advance as constitutional law.
+
+    The consequence: Claude Code is nimble in the field but requires deliberate editorial discipline to prevent governance from fragmenting across teams. Its institutions are real; they are just carried closer to the scene than to the constitution.
+  </Accordion>
+
+  <Accordion title="Codex as constitutional control plane" defaultOpen={false}>
+    Codex is closer to a **constitutional control plane**. Power is first written into types, fragments, policy, threads, and event systems. Runtime still judges, of course, but it judges inside a more explicit framework.
+
+    The consequence: Codex requires more upfront institutional design but pays dividends in governance clarity at scale. Its rules are easier to reason about organizationally because they exist as explicit structural entities before any session begins.
+  </Accordion>
+
+  <Accordion title="The 'inject first, rescue later' failure mode" defaultOpen={false}>
+    Systems that rely mainly on prompt stacking to hold context together sit in a less settled middle zone. They have already realized that models forget and drift, so they add memory, skills, and compaction. But if context governance still follows an "inject first, rescue later" logic, then the system still has not decided clearly which layer should own order.
+
+    Such systems often appear workable in the short term. Over longer sessions they expose the same double failure: tokens are expensive, and working semantics are still unstable. The system is solving *how much can be inserted*, not *what must be preserved for continued work*.
+
+    <Warning>
+      Neither hardening runtime discipline nor making the control layer truly explicit, and instead relying on ever-larger prompt context, is a path toward two simultaneous problems: high token cost and no stable semantic foundation for continued work.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## What later builders should learn
+
+The true value of this comparison is not side-picking. It is avoiding two categories of mistake.
+
+**The first mistake** is thinking a feature table is enough. It is not. A team has to decide what its primary contradiction is. Is the real problem that long sessions go out of control, or that rule sources are too scattered and permission boundaries remain unclear? Different contradictions push toward different harness shapes.
+
+**The second mistake** is trying to splice together the most attractive features of both systems without making actual tradeoffs. In engineering, what is most dangerous is often not the tradeoff itself but the refusal to make one. If you want fully dynamic runtime flexibility and a completely explicit structured control plane at the same time, you usually end up with neither.
+
+The saner approach:
+
+- if you fear loss of control on site, strengthen the runtime heartbeat first
+- if you fear institutional drift, make instruction, tool, policy, and state explicit first
+- once the primary contradiction stabilizes, gradually build the opposite side
+
+## The final judgment
+
+> "Convergence" names the reality they both accept: the model is unreliable, and harness is where order comes from.
+>
+> "Different branches" names the different political economy through which that reality is implemented: Claude Code trusts runtime discipline more, while Codex trusts explicit control layers more.
+
+The real question is this: **in which layer is your system prepared to cage uncertainty?**
+
+The location of that cage determines what the system will later become.
+
+<CardGroup cols={2}>
+  <Card title="If you are building your own harness" icon="hammer" href="/book2/how-to-choose-or-build">
+    Practical guidance for teams deciding which architecture to study first, or building their own harness from scratch.
+  </Card>
+  <Card title="Harness comparison checklists" icon="list-check" href="/book2/checklists">
+    Actionable checklists for determining where your harness sits on the Claude Code–Codex spectrum.
+  </Card>
+</CardGroup>

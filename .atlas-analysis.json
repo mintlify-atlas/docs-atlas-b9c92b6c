@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Harness Books",
+  "projectType": "general",
+  "projectName": "Harness Books",
+  "projectDescription": "Two engineering books on harness design for AI coding agents, exploring how constraint structures, control planes, and team practices keep unstable models bounded and accountable in real engineering environments.",
   "theme": "palm",
-  "colors": {
-    "primary": "#16a34a",
-    "light": "#dcfce7",
-    "dark": "#14532d"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/wquguru/harness-books"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/wquguru/harness-books"
-    }
-  },
+  "primaryColor": "#16a34a",
+  "lightColor": "#dcfce7",
+  "darkColor": "#14532d",
   "navigation": {
     "tabs": [
       {
@@ -105,5 +93,24 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Harness engineering principles for AI coding agents",
+    "Deep analysis of Claude Code's runtime architecture",
+    "Comparative study of Claude Code vs Codex harness designs",
+    "Control plane and query loop design patterns",
+    "Context governance and memory management strategies",
+    "Error recovery and resilience patterns for agent systems",
+    "Multi-agent verification and division of labor",
+    "Team adoption practices and institutional rule encoding",
+    "Available in English and Chinese (Simplified)"
+  ],
+  "publicApiSurface": [
+    "Book 1: Harness Engineering — A Design Guide to Claude Code (9 chapters + appendices)",
+    "Book 2: The Harness Design Philosophies of Claude Code and Codex (8 chapters + appendices)",
+    "PDF downloads for both books",
+    "Python build tooling: tools/book-kit/build_honkit.py",
+    "Python build tooling: tools/book-kit/build_pages_site.py",
+    "Python build tooling: tools/book-kit/export_pdf.py"
+  ]
 }

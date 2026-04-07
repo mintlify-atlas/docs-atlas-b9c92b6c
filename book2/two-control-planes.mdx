@@ -1,0 +1,130 @@
+---
+title: "Two control planes: prompt assembly vs instruction fragments"
+description: "How Claude Code and Codex differ in their control plane architecture — assembled prompts vs structured instruction fragments"
+---
+
+Control is not about tone. Both Claude Code and Codex treat prompts as parts of a behavioral control plane. The difference lies not in the copy but in the mechanisms that assemble and surface it.
+
+## What a control plane actually does
+
+When you author instructions for an AI coding agent, you are not writing a script. You are configuring a system that will dynamically interpret, prioritize, and apply those instructions across an unpredictable sequence of tasks. The control plane is the machinery that makes those instructions operational.
+
+Claude Code and Codex answer the question "how do instructions become behavior?" in structurally different ways — and that difference has direct consequences for governance, debugging, and modification.
+
+## The two approaches
+
+<Tabs>
+  <Tab title="Claude Code: dynamic assembly">
+    Claude Code's system prompts are not fixed documents — they are a production line. Defaults provide the foundation; append prompts drop requirements; agent prompts add roles; `CLAUDE.md` and memory inject local conditions.
+
+    This flexibility lets the same loop handle different scenarios, but it makes the order of assembly critical: wrong ordering can dilute instructions or let conflicts slip through.
+
+    **Key assembly inputs:**
+    - Baseline system prompt (defaults)
+    - Append prompts (task requirements)
+    - Agent role prompts
+    - `CLAUDE.md` (local workspace rules)
+    - Memory (persistent context)
+    - Output style directives
+
+    Because of this, runtime governance is essential. Control is constantly injected, overwritten, compressed, or pruned when tasks shift. The query loop recalculates "what matters now" each round.
+
+    Claude Code's guiding intuition: **control has to follow the scene — it cannot be frozen into static rules.**
+  </Tab>
+  <Tab title="Codex: structured fragments">
+    Codex treats instructions as structured fragments. `AGENTS.md`, user messages, and skills become chunks with clear markers, start and end boundaries, and serialization rules. Tools and instructions stop being free-form narrative and become identifiable contextual units.
+
+    This gives the control plane traceability and the ability to grow more governance artifacts without losing clarity.
+
+    **Key fragment constructs (from `fragment.rs`):**
+    - `AGENTS_MD_START_MARKER` / `AGENTS_MD_END_MARKER`
+    - `SKILL_OPEN_TAG` / `SKILL_CLOSE_TAG`
+    - `ContextualUserFragmentDefinition::wrap()`
+    - `into_message()` → `ResponseItem::Message`
+
+    In `user_instructions.rs`, `UserInstructions` serializes the directory into the line `# AGENTS.md instructions for ...`, while `SkillInstructions` carries explicit `<name>` and `<path>` fields.
+
+    Codex tries hard not to make the model guess where a rule came from.
+  </Tab>
+</Tabs>
+
+## CLAUDE.md vs AGENTS.md
+
+The distinction between the two local rule files is revealing about each system's philosophy.
+
+<Tabs>
+  <Tab title="CLAUDE.md">
+    `CLAUDE.md` feels like a local bulletin board — an on-site rule set tailored to a directory or workspace. It is pragmatic, local, and mission-focused.
+
+    Claude Code brings local rules **into the conversation**.
+
+    The mental model: a sticky note on the wall of the room where work is happening.
+  </Tab>
+  <Tab title="AGENTS.md">
+    `AGENTS.md` names scope, priority, and inheritance. Even when `child_agents_md` is not present, Codex injects scoped instructions to clarify applicability.
+
+    Codex brings local rules **into the institution**.
+
+    The mental model: a policy document filed in a system that knows who it applies to and when.
+  </Tab>
+</Tabs>
+
+## Key architectural differences
+
+<CardGroup cols={2}>
+  <Card title="Assembly-time control" icon="layer-group">
+    Claude Code resolves instruction priority at runtime. Each query loop recalculates what applies based on the current task, tools, and context state. Flexible, but conflict resolution depends on assembly order.
+  </Card>
+  <Card title="Fragment-time control" icon="tag">
+    Codex resolves instruction scope at definition time. Each fragment carries its own type markers and boundaries. Debuggable, but requires treating instruction design as structural engineering work.
+  </Card>
+  <Card title="Local rules as context" icon="file-lines">
+    `CLAUDE.md` injects rules as conversational context — they flow into the prompt the way any other message does. The model sees them, but the system does not track their provenance separately.
+  </Card>
+  <Card title="Local rules as typed units" icon="brackets-curly">
+    `AGENTS.md` fragments are wrapped, tagged, and serialized into typed message items. The system can inspect, manipulate, and extend them programmatically outside the model's view.
+  </Card>
+  <Card title="Agility over formalism" icon="bolt">
+    Claude Code's runtime assembly is flexible and experience-driven. It handles edge cases and volatile sessions well. The cost: rules can remain implicit inside runtime logic and are harder to audit externally.
+  </Card>
+  <Card title="Clarity over simplicity" icon="building-columns">
+    Codex's fragment approach is explicit and institutional. Rules are visible, nameable, and governable. The cost: the system is heavier and policy design must be treated as real design work.
+  </Card>
+</CardGroup>
+
+## Implications for behavior governance
+
+The control plane architecture you choose determines how you modify, debug, and govern behavior.
+
+<Steps>
+  <Step title="Identify where rules live">
+    In Claude Code, rules are distributed across prompt layers that are assembled at runtime. Tracing a behavioral issue means understanding the assembly order and which layer won. In Codex, rules are named fragments with explicit markers — you can locate them in the type hierarchy.
+  </Step>
+  <Step title="Understand conflict resolution">
+    Claude Code resolves conflicts dynamically in the loop. You configure priority by controlling which layers append in what order. Codex encodes scope and inheritance into the fragment definitions themselves, making conflicts more visible before runtime.
+  </Step>
+  <Step title="Plan for modification">
+    Modifying Claude Code behavior often means editing the assembly pipeline — which prompts combine, in what order, and with what priority rules. Modifying Codex behavior means editing typed fragment definitions, which can be validated and tested independently of the live session.
+  </Step>
+  <Step title="Design for auditability">
+    If your team needs to answer "why did the agent do that?", Claude Code requires reconstructing the assembled prompt state at the time of the action. Codex's fragment provenance makes this more tractable — each instruction unit already knows what it is and where it came from.
+  </Step>
+</Steps>
+
+## Choosing your architecture
+
+The right choice depends on where your primary risk lives.
+
+If your main concern is **volatile sessions** — rapidly changing tasks, diverse tool contexts, local workspace variations — Claude Code's dynamic assembly gives you the flexibility to adapt control to the scene.
+
+If your main concern is **unclear rule sources** — growing teams, multiple contributors, governance requirements, auditability — Codex's fragment structure gives you the institutional clarity to track and modify behavior systematically.
+
+Claude Code builds experience-driven control. Codex builds institutional control. One feels like a production floor; the other feels like a bureaucracy. Both descriptors are accurate, and neither is an insult.
+
+---
+
+**Next:** [Where the heartbeat lives: query loop vs thread, rollout, and state](/book2/loop-thread-and-rollout)
+
+**Related:**
+- [Book 1: The prompt is the control plane](/book1/prompt-is-control-plane)
+- [Skills, hooks, and local governance](/book2/skills-hooks-and-local-governance)

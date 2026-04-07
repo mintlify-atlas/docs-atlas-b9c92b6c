@@ -1,0 +1,176 @@
+---
+title: "If you are building your own harness: what to study first"
+description: Practical guidance for teams deciding between Claude Code and Codex architectures, or building their own harness
+---
+
+The least interesting ending for a comparison book is to push the reader back into a consumer posture: choose A or B. Engineering systems are not headphones. You do not buy them through ranking charts.
+
+The useful question is: if you are about to build your own harness, or refactor the agent you already have, whose lessons should you learn first, and which part should you learn first?
+
+Claude Code and Codex offer two opening moves, not two final answers.
+
+## Identify your primary contradiction first
+
+<Steps>
+  <Step title="Diagnose your current failure mode">
+    Before looking at either system, name the primary problem your harness has — or will have.
+
+    **Long-session control failures** look like:
+    - context gets noisier over time
+    - tool-call chains break mid-task
+    - state becomes unclear after interruption
+    - no one closes subagent work cleanly
+    - verification degenerates into something people merely say
+
+    **Institutional drift failures** look like:
+    - local rules are scattered everywhere
+    - no one can say which constraints live in prompt and which live in tools
+    - approval logic is mixed into code and hard to explain
+    - once multiple extensions are introduced, boundaries blur further
+
+    Name which category is your primary problem. You cannot solve both at once without first solving one.
+  </Step>
+  <Step title="Match the diagnosis to the correct study target">
+    Once you have named your primary contradiction, the study direction follows:
+
+    - **Long-session control failures** → study Claude Code first
+    - **Institutional drift failures** → study Codex first
+    - **No mature system yet** → choose one primary contradiction and design around it
+
+    The worst move is trying to learn both sides fully at the same time and ending up with neither a stable main loop nor a clear control plane.
+  </Step>
+  <Step title="Study the right layer first">
+    Knowing which system to study is not enough. You also need to study the right layer.
+
+    From Claude Code, the most important layers to study are:
+    - the state mind-set of the query loop
+    - compaction and context governance
+    - tool orchestration and interrupt handling
+    - subagent lifecycle and verification independence
+    - treating failure paths as main paths
+
+    From Codex, the most important layers to study are:
+    - instruction fragmentation
+    - tool schemas
+    - explicit expression of approval and policy
+    - infrastructure for thread / rollout / state
+    - hook events and skill-asset management
+  </Step>
+  <Step title="Build the primary skeleton first, then add the other side at minimum level">
+    Once you have chosen your primary contradiction and studied the relevant architecture, build around that primary axis.
+
+    Add the opposite side only at minimum viable level:
+
+    - if you built runtime-first (Claude Code style), add enough explicit structure to make your rules auditable
+    - if you built control-plane-first (Codex style), add enough runtime discipline to survive interruption and recovery
+
+    The goal is not to average both systems. It is to grow the bone your system needs first, then fill in the complementary structure.
+  </Step>
+  <Step title="Scale into multi-agent and platform capability last">
+    Multi-agent execution, platform capability, and a more complex ecosystem should come last — after the primary loop or control layer is stable.
+
+    In engineering, many design orders should be arranged according to the order of failure, not according to what looks nicest in a demo.
+  </Step>
+</Steps>
+
+## Three team types and their opening directions
+
+<Tabs>
+  <Tab title="Choosing Claude Code style">
+    **You are probably in this category if** your team already has an agent prototype, but long sessions frequently lose control.
+
+    Your problem is rarely that "the control plane is underdefined." Your problem is that the system cannot stay alive long enough.
+
+    **What to study from Claude Code:**
+
+    - How the query loop maintains state across a multi-turn session
+    - How compaction decisions are made before the context window gets critical
+    - How tool-call chains are tracked and closed even after interruption
+    - How subagent work is partitioned and how parent agents handle child failure
+    - How verification is kept independent from the executing agent
+
+    **The key warning**: Claude Code's strength is not that it rejects structure. Its strength is that it knows which troubles must be faced directly inside runtime. Do not mistake "runtime first" for "no structure ever." Stabilize the loop first. Institutional aesthetics can wait.
+
+    <Tip>
+      When long sessions are your primary problem, repair the runtime heartbeat before adding more configuration. A system that loses state under pressure cannot be saved by more careful rule design.
+    </Tip>
+  </Tab>
+  <Tab title="Choosing Codex style">
+    **You are probably in this category if** your team already has many rules, but rule sources are scattered and permission boundaries are unclear.
+
+    Your problem is not that the live scene is impossible to survive. Your problem is that the system becomes harder and harder to govern.
+
+    **What to study from Codex:**
+
+    - How instructions are fragmented and given scope, type, and precedence
+    - How tool schemas define boundaries explicitly rather than through runtime convention
+    - How approval and execution policy are expressed as explicit structures
+    - How thread, rollout, and state DB bridge create durable persistence
+    - How hook events and skill assets are managed as versioned institutional artifacts
+
+    **The key warning**: Codex's strength is not that it rejects flexibility. Its strength is that it knows which boundaries will turn into endless disputes if they are not declared early. Do not mistake "explicit first" for "inflexible always."
+
+    <Tip>
+      When institutional drift is your primary problem, turn instruction, tool, policy, and thread into explicit concepts before asking runtime to work inside them. Verbal agreement is not a control plane.
+    </Tip>
+  </Tab>
+  <Tab title="Building from scratch">
+    **You are in the most dangerous situation** — it is easiest to envy the strengths of both sides at once and build a failed compromise.
+
+    A steadier route:
+
+    1. Choose one primary contradiction
+    2. Design the main skeleton around that contradiction
+    3. Add the opposite side only at minimum level
+
+    **If your first-phase risk is mainly "the model will behave recklessly"** — start with runtime discipline in the Claude Code sense. Build the query loop, context governance, and tool orchestration first.
+
+    **If your first-phase risk is mainly "the team will lose institutional order"** — start with an explicit control layer in the Codex sense. Build the instruction fragments, tool schemas, and approval policy first.
+
+    <Warning>
+      Avoid the third route: packing bootstrap files, role descriptions, skill explanations, and workspace text into prompt and hoping that informational fullness will compensate for a weak skeleton. Such systems often appear workable in the short term, but over longer sessions they expose the same double failure: tokens are expensive, and working semantics are still unstable.
+    </Warning>
+
+    **A practical build order for new harnesses:**
+
+    1. Define high-risk actions and the minimum permission model
+    2. Define the main loop or thread lifecycle
+    3. Define context governance and recovery paths
+    4. Define skills, local rules, and hooks
+    5. Only then scale into multi-agent, platform capability, and a more complex ecosystem
+  </Tab>
+</Tabs>
+
+## Explicitness and flexibility are not natural enemies
+
+System builders often rely on a lazy false opposition.
+
+Say "explicit control layer" and they imagine a system that must become heavy, slow, and rigid. Say "runtime flexibility" and they imagine experience can carry the system now while structure is deferred to later.
+
+Neither instinct is intelligent. Explicitness is not inherently rigid, and flexibility is not inherently chaotic. The real question is whether you have defined clearly which things must be explicit and which things can be left to field judgment.
+
+A good third harness should not average the two. It should distinguish:
+
+- which rules must be written down first
+- which judgments can remain in runtime
+- which state must persist
+- which experience only needs to be retained temporarily inside session memory
+
+## Summary
+
+> Learn from Claude Code mainly to understand how a system stays stable on site; learn from Codex mainly to understand how a system sustains order over time inside an organization.
+
+Teams that learn only the first tend to become rich in experience and poor in institution.
+
+Teams that learn only the second tend to produce elegant institutions and fragile field behavior.
+
+The better move is not side-picking. It is deciding which bone your system must grow first according to its primary contradiction.
+
+<CardGroup cols={2}>
+  <Card title="Harness comparison checklists" icon="list-check" href="/book2/checklists">
+    Use the checklists to assess where your current harness sits on the Claude Code–Codex spectrum.
+  </Card>
+  <Card title="Convergence and divergence" icon="arrows-to-circle" href="/book2/convergence-and-divergence">
+    Return to the final comparative judgment for the full theoretical frame behind this guidance.
+  </Card>
+</CardGroup>

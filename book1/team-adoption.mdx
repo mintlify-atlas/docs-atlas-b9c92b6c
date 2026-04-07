@@ -1,0 +1,211 @@
+---
+title: "Team adoption: turning a smart tool into a reusable institution"
+description: How teams can encode individual experience into shared harness discipline through layered CLAUDE.md, skills, hooks, and verification practices
+---
+
+Personal expertise with a coding agent does not automatically become safe team practice. Skilled individual users know when to patch context, when to watch the model closely, and when one precise instruction can hold behavior steady. That expertise creates an illusion: if power users can drive it smoothly, team rollout is just a matter of writing more best-practice notes.
+
+The problem is that personal technique depends on continuous human supervision, background knowledge, and situational judgment. Once a team adopts the tool, those assumptions break. You can no longer count on everyone knowing which commands are dangerous, which memories are stale, which skills fork subagents, and which steps absolutely must not skip approval.
+
+The real team challenge is turning order that lived inside expert heads into a workflow that ordinary contributors can repeat without heroics.
+
+## The institutional adoption path
+
+<Steps>
+  <Step title="Define acceptable usage scope">
+    Before building any automation, decide which task classes may involve the agent at all. Vague allowed usage leads to the agent being used in places that were never meant to be automated. This boundary is the foundation everything else rests on.
+
+    At minimum, answer:
+    - Which task classes may involve the agent?
+    - Which changes still require human review?
+    - Which resources are simply off limits?
+  </Step>
+
+  <Step title="Standardize verification definitions">
+    One of the most common failures in agent rollout is having no shared definition of done. One person thinks "it runs" is enough. Another accepts a plausible-looking explanation from the model. In that environment, even a capable system learns to satisfy the weakest bar available.
+
+    Define these three things before building many skills:
+    - Which task classes require independent verification?
+    - What minimum actions does verification include — tests, local runs, logs, human acceptance?
+    - Whether failed verification may still be marked "done with known issues"
+
+    If these stay unclear, any later automation only speeds up ambiguity. Skills can replicate process, but only verification definitions replicate quality.
+
+    <Tip>
+      Standardize verification definitions before increasing skill volume. This is the more durable rollout order: standardize verification first, then package recurring workflows into skills, then consider more complex automation.
+    </Tip>
+  </Step>
+
+  <Step title="Establish layered CLAUDE.md">
+    Set up a stable, layered `CLAUDE.md` structure covering repository-level hard constraints, shared verification expectations, and collaboration discipline. This becomes the foundation layer that all other automation builds on.
+
+    Keep it stable enough that team members rarely need to debate it. Think of it as foundation, not bulletin board.
+  </Step>
+
+  <Step title="Package recurring workflows as skills">
+    Once the floor is established, identify task classes worth formal reuse and encode them as skills. Focus on concrete cases where skills actually help rather than trying to encode the whole organization.
+  </Step>
+
+  <Step title="Add hooks for timing-bound governance">
+    Once baseline governance is stable, introduce lifecycle hooks for actions that must happen at the right moment — injecting context at session start, running verification before subagents stop, archiving at session end. Hooks belong after the foundation is in place, not before.
+  </Step>
+
+  <Step title="Layer in advanced auditability as scale demands">
+    Baseline traceability — Git diffs, PR comments, CI results, issue trackers — is a requirement for team adoption. Advanced agent audit trails (transcript paths, tool-call records, hook events, compact summaries) are an enhancement for high-risk, high-scale, or compliance-heavy teams. Build layer one fully before investing heavily in layer two.
+  </Step>
+</Steps>
+
+## Team practice components
+
+<AccordionGroup>
+  <Accordion title="Layered CLAUDE.md">
+    Claude Code loads `CLAUDE.md` in layers: repository level, project level, and user level. Each layer has a different audience and a different scope of authority. Team-level `CLAUDE.md` is best used for stable rules, not every procedural detail.
+
+    **What belongs in team CLAUDE.md:**
+    - Repository-level hard constraints — forbidden directories, dangerous command classes
+    - Shared verification expectations — the minimum checks that must run
+    - Collaboration discipline — do not overwrite unrequested changes, do not reset dirty worktrees without explicit instruction
+    - Output discipline — findings-first review reporting
+
+    **What does not fit well:**
+    - Rapidly changing temporary processes
+    - Instructions that matter only for a narrow task subset
+    - Details better expressed as commands, skills, or scripts
+
+    Once `CLAUDE.md` becomes encyclopedic, it loses the two properties that matter most: stability and credibility. Team members stop knowing whether a rule is current or leftover discussion from months ago. The system, in turn, learns a bad habit — treating obsolete norms as active law.
+
+    <Tip>
+      The ideal team `CLAUDE.md` is not simply "large." It should be stable enough that people rarely need to debate it.
+    </Tip>
+
+    **Source reference:** `src/utils/claudemd.ts` — layered discovery and loading of `CLAUDE.md` with precedence ordering across default, project, custom, append, and agent-specific sources.
+  </Accordion>
+
+  <Accordion title="Skills as workflow modules">
+    Skills are executable workflow modules, not casual prompt snippets and not full institutional objects. Claude Code treats them seriously: if intent matches a skill, the Skill tool must actually be called; already-loaded skills should not be reloaded; and some skills run in forked subagent contexts with their own context boundaries and tool sets.
+
+    **Concrete cases where skills pay off:**
+    - A task class always needs the same checks
+    - A problem type always requires the same context bundle
+    - A workflow should always produce the same artifact set
+    - A subtask is consistently better delegated to a subagent
+
+    **Design questions to answer for each skill:**
+    - What task class does this serve?
+    - What tools may it use by default?
+    - Should it execute directly or be forked to a subagent?
+    - What result should exist afterward, and how is that result verified?
+
+    If those questions are unanswered, skills quickly decay into nicely named but semantically vague slogans. The safer interpretation for most teams: skills should first solve "how do we reuse this recurring workflow reliably."
+
+    <Tip>
+      Encoding the whole organization into agent form is usually a much later concern. Start with concrete, well-bounded workflows.
+    </Tip>
+
+    **Source reference:** `src/tools/SkillTool/SkillTool.ts` and `src/tools/SkillTool/prompt.ts` — skills as institutional slices rather than prompt collections, with subagent forking via `src/utils/forkedAgent.ts`.
+  </Accordion>
+
+  <Accordion title="Tiered approval policies">
+    Being able to do something is different from being authorized to do it. In solo use, individuals grant themselves ad hoc authority. Teams cannot. Once an agent starts writing files, mutating Git state, accessing networks, or touching external systems, each step is not only a technical action — it is also a movement of responsibility.
+
+    A realistic approach tiers approvals by risk rather than by tool name:
+
+    | Risk tier | Examples |
+    |-----------|---------|
+    | Lower risk | File reads, listing, pure analysis |
+    | Higher risk | Workspace mutation, config edits, write operations |
+    | Highest risk | Git push, external network access, sensitive environments |
+
+    What teams really need to control is irreversibility and environment sensitivity, not the button label. The value of approval is mainly in clarifying risk boundaries. Once those boundaries are clear, automation is less likely to amplify damage in the wrong places.
+
+    <Warning>
+      Avoid designing an elaborate approval taxonomy immediately — the rollout cost becomes too high to sustain. Tier by consequence first, then refine.
+    </Warning>
+
+    **Source reference:** `src/hooks/useCanUseTool.tsx` and `src/utils/permissions/PermissionResult.ts` — `allow / deny / ask` authorization semantics and allow-rule scoping.
+  </Accordion>
+
+  <Accordion title="Lifecycle hooks">
+    `hooksConfigManager.ts` exposes lifecycle events including `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `FileChanged`, `DirectoryChange`, and others. Rules can happen at exactly the right moment.
+
+    **Useful hook applications:**
+    - Injecting organization-level context when instruction files load
+    - Running one more verification step before a subagent stops
+    - Recording summaries around compact boundaries
+    - Performing archival or cleanup work at session end
+
+    **The important judgment:** hooks are an advanced automation interface. For most ordinary engineering teams, the first move is something simpler — repository-level instruction files, code-review rules, CI and test expectations, and a small number of recurring commands or skills.
+
+    Hooks start to pay off when scale, risk, or compliance pressure rises. Before that, they can introduce more moving parts than the team is ready to own: scripts without maintenance owners, trigger timing that no one fully understands, and debugging costs that exceed the cost of the manual step they replaced.
+
+    <Tip>
+      Hooks make the most sense after baseline governance is already stable. They are best for timing-bound actions that cannot be captured in static instructions.
+    </Tip>
+
+    **Source reference:** `src/utils/hooks/hooksConfigManager.ts` — lifecycle governance through hooks, with `src/main.tsx` for session startup behavior.
+  </Accordion>
+
+  <Accordion title="Transcript tracking and replayability">
+    Teams need to know why something happened, where drift started, and who authorized a consequential step. Claude Code's implementation creates stronger replayability through logs, telemetry, task outputs, transcript paths, hook events, and agent notifications. But teams should separate two layers.
+
+    **Layer 1 — Baseline traces (requirement for all teams):**
+    - Git diffs and commit history
+    - PR comments and reviewer decisions
+    - CI results and test logs
+    - Issue trackers, task tickets, and acceptance notes
+
+    **Layer 2 — Advanced agent audit trails (enhancement for high-risk teams):**
+    - Transcript paths
+    - Tool-call records
+    - Hook events
+    - Compact summaries
+    - Subagent usage and state transitions
+
+    Make sure layer one has no serious gaps before investing heavily in layer two. Many teams still lack a clean review standard and a clean verification standard. If they chase full agent auditability too early, governance turns into an expensive display object.
+
+    <Note>
+      Baseline replayability is a requirement for team adoption. Advanced agent audit trails are an enhancement for high-risk, high-scale, or compliance-heavy teams.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Unified verification definitions">
+    Verification definition matters more than skill count. A team with very few skills but clear verification definitions can still hold a consistent quality floor. A team with many skills but no shared definition of done will find that every automation only speeds up ambiguity.
+
+    Verification should be a dedicated, independent phase — not an afterthought bundled into the implementation step. Implementers naturally overtrust their own changes. Models do so even more.
+
+    **Key questions to answer:**
+    - Which task classes require independent verification?
+    - What minimum actions does verification include — tests, local runs, logs, human acceptance?
+    - Is verification independent from implementation, ideally with independent role ownership?
+    - Whether failed verification may still be marked "done with known issues"
+
+    **Source reference:** `src/skills/bundled/verify.ts` — independent verification stage as a dedicated skill; `src/coordinator/coordinatorMode.ts` — coordinator mode separating verification into its own stage.
+  </Accordion>
+</AccordionGroup>
+
+## The eighth principle
+
+The pattern across these practices converges on one principle:
+
+> Team adoption works best when acceptable boundaries, verification standards, and recurring workflows become stable early.
+
+In portable form, what the source suggests:
+
+- Instructions must be layered so that stable rules and temporary process details do not collapse into each other
+- Skills are useful for recurring workflows, but only when applicability, tool scope, and outputs are explicit
+- Approvals should be tiered by risk and environment rather than crudely sorted by tool names
+- Hooks are powerful, but they belong after baseline governance is already stable
+- Replayability should be built in layers: baseline traceability first, advanced auditability when the context justifies it
+
+Teams that can sustainably use agents are usually teams where ordinary members can operate correctly within institutions — not teams that depend on a few experts.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Previous: Multi-agent and verification" href="/book1/multi-agent-and-verification">
+    How coordinators partition uncertainty across roles and why verification must be independent
+  </Card>
+  <Card title="Next: Ten principles" href="/book1/ten-principles">
+    The consolidated engineering judgments distilled from Claude Code's architecture
+  </Card>
+</CardGroup>

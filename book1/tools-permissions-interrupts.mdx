@@ -1,0 +1,150 @@
+---
+title: "Tools, permissions, and interrupts"
+description: Why agents cannot touch the world directly — tool scheduling, authorization, interrupts, and blast radius control
+---
+
+A text-only model mostly increases communication cost when wrong. If it explains badly, you ask again. Once it starts calling tools, risk changes in kind. Tools are not opinions. Tools are actions. Actions leave effects, and effects touch the real world.
+
+Shell makes this obvious. If a model writes a wrong explanation, impact stays at understanding level. If it runs the wrong command, files get deleted, processes are terminated, and Git history becomes hard to repair. Capability increases usually come with consequence increases.
+
+So the most important question in tool systems is: who constrains these tools? Claude Code answers by turning tools into managed execution interfaces, preventing models from touching the world directly.
+
+<Warning>
+The blast radius risk in agent tool systems is not theoretical. A model with unrestricted shell access and a misunderstood instruction can delete files, push commits, or terminate processes before any human can intervene. The governance structures described in this chapter exist specifically to limit this radius — and they must be treated as load-bearing, not optional.
+</Warning>
+
+## Tool categories and governance
+
+<AccordionGroup>
+  <Accordion title="Orchestrated tool execution">
+    In `runTools()` at `src/services/tools/toolOrchestration.ts:19`, Claude Code first does something representative: it does not directly execute a list of `tool_use` calls. It batches them by concurrency safety.
+
+    In `partitionToolCalls()` at `src/services/tools/toolOrchestration.ts:91`, the system reads each tool's `inputSchema`, then calls `isConcurrencySafe()` to decide whether execution can be parallel. Safe calls go into parallel batches; unsafe calls are split into serial units.
+
+    This is not performance tuning — it is consistency design. In parallel paths (`toolOrchestration.ts:31` to `:63`), Claude Code does not let the fastest tool mutate context first. It buffers `contextModifier` callbacks and replays them in original block order. Execution can be parallel while semantic context evolution remains deterministic.
+
+    Mature agent systems do not idolize parallelism. They treat it as an exception that must prove safety, not a default freedom.
+  </Accordion>
+  <Accordion title="Lifecycle-wrapped tool calls">
+    Many people assume that once `tool_use` appears, execution naturally follows. Claude Code shows that robust systems do not work that way.
+
+    After `src/services/tools/toolExecution.ts:30`, execution in `runToolUse()` is already wrapped with permission logic, hooks, telemetry, and synthetic error materialization. The structure is clear even without reading every branch — tool execution is a full lifecycle with:
+
+    - Pre-checks
+    - In-flight events
+    - Post-execution correction
+    - Failure compensation
+
+    Tools here are not ordinary internal library functions. Internal functions assume stable callers who own consequences. Tool interfaces sit between models and the external world, so runtime cannot assume stable caller judgment. That is why so many wrappers exist around execution — the caller is the most unstable variable.
+
+    Tools should not be modeled as "extensions of model capability." They should be modeled as external capabilities whose risk must be managed by runtime.
+  </Accordion>
+  <Accordion title="Bash — the high-risk channel">
+    In Claude Code's tool world, Bash is not a normal tool. It is a risk amplifier. It is too general. The more general an interface, the harder it is to constrain by domain logic. A file-read tool will not casually kill processes. A grep tool will not secretly push commits. Bash can do almost everything.
+
+    Claude Code's distrust is explicit across two layers:
+
+    **Prompt-level guidance**: `src/tools/BashTool/prompt.ts:42` and below sets detailed rules for git, PRs, dangerous commands, hooks, force push, and interactive flags. It looks verbose — it is disciplined verbosity. Where consequences are large, rules are explicit.
+
+    **Permission and safety classification**: `src/tools/BashTool/bashPermissions.ts:1` onward handles shell semantics, command prefixes, redirection, wrappers, safe env vars, classifier routing, and rule matching. After `bashPermissions.ts:95`, there is even an explicit subcommand-count limit to prevent complex command bundles from escaping checks.
+
+    High-risk capability should not receive generic capability treatment. The more general a capability is, the more special governance it needs. Treating Bash as an ordinary tool is design laziness.
+  </Accordion>
+</AccordionGroup>
+
+## Permission model
+
+### Permission comes before capability
+
+Claude Code's permission entry point is after `src/hooks/useCanUseTool.tsx:27`. The very existence of `CanUseToolFn` says something important: tool allowance is not decided by model intent alone — it goes through an authorization chain.
+
+Inside `useCanUseTool()`, runtime does not auto-run just because the model requested a tool. It first calls `hasPermissionsToUseTool(...)` at `useCanUseTool.tsx:37`. Results split into `allow`, `deny`, or `ask`.
+
+This may look ordinary, but it is fundamental. Mature authorization systems need more than yes/no — they need a third state where the system itself should not decide on behalf of the user.
+
+After `useCanUseTool.tsx:64`, branches continue:
+
+- **deny**: reject directly
+- **ask**: route to coordinator, swarm worker, classifier, or interactive approval
+- **allow**: execute
+
+This structurally rejects a common dangerous idea: if the model understood user intent, it has authority to execute. It does not. Intent understanding is not authorization, and certainly not persistent authorization. Systems must split "can do" from "may do."
+
+### Permission as runtime semantics, not booleans
+
+After `src/utils/permissions/PermissionResult.ts:23`, Claude Code defines explicit describers for permission semantics: `allow`, `deny`, and `ask`. Permission is not an internal bool — it is a runtime object with independent meaning.
+
+<Note>
+A permission system must let runtime clearly express why a step did not continue. When an agent says "I need confirmation," it is declaring responsibility boundaries. Once boundaries are explicit, refusal, approval, cache rules, temporary grant, and persistent grant all have a place.
+
+If an agent cannot distinguish "I can do this," "I cannot do this," and "I must ask," it should not touch a terminal. Terminals do not fill missing semantics. Terminals only execute.
+</Note>
+
+## Interrupt semantics
+
+Once tools are parallel and streaming, interrupt handling becomes immediately complex. Runtime now faces a queue with states like queued, executing, completed, yielded — not one single action.
+
+After `src/services/tools/StreamingToolExecutor.ts:34`, Claude Code makes this a dedicated streaming executor. The most important part is how it handles interruption and discard.
+
+At `StreamingToolExecutor.ts:64` to `:70`, runtime can discard the current tool set during streaming fallback. At `:153` to `:205`, it generates synthetic error messages for different causes:
+
+- Sibling error
+- User interrupted
+- Streaming fallback
+
+After `:210`, it further distinguishes interruption causes:
+
+- Cancelled due to sibling tool failure
+- Cancelled due to user interrupt
+- Dropped due to fallback
+
+At `:233` and below, each tool can define `interruptBehavior`, deciding whether to `cancel` or `block` when the user interjects.
+
+<Note>
+Claude Code does not treat interruption as "a special execution error." It treats interruption as semantics equal in importance to execution itself. Runtime must know not only whether a tool may start, but how it ends when interrupted, how results are closed, and whether new messages can interleave.
+
+Design start and stop both. Execution systems without stop semantics eventually depend on user-side hard interruption to complete their design.
+</Note>
+
+## Protecting runtime consistency, not just users
+
+Permissions, scheduling, and interrupts look like user protection mechanisms, but they also protect runtime consistency itself. If an agent system allows unresolved problems — incomplete `tool_result`, out-of-order context mutation, unbounded parallel side effects, ambiguous interrupt semantics — the first thing to break is internal consistency.
+
+This is tightly coupled across `query.ts` and tool execution layers. The query loop synthesizes missing tool results on interrupt. `StreamingToolExecutor` has its own discarded/errored/sibling-abort/interrupt behavior mechanics. Together they preserve a traceable causal chain for:
+
+- What was executed
+- What was unfinished
+- Why it stopped
+
+Many constraints look like misoperation prevention on the surface. At a deeper level they prevent runtime from collapsing into unexplainable state fragments.
+
+## The principle
+
+> Tools are managed execution interfaces; permission is an organ of the agent system.
+
+Claude Code source supports this jointly:
+
+- `toolOrchestration.ts` batches before execution — scheduling comes before impulse
+- `toolExecution.ts` wraps hooks, permission, telemetry, and synthetic errors around execution — calls are never bare
+- `useCanUseTool.tsx` splits authorization into `allow / deny / ask`, making authority a first-class semantic branch
+- `StreamingToolExecutor.ts` defines interruption, fallback, and sibling-failure semantics — stopping is as important as starting
+- `BashTool/prompt.ts` and `bashPermissions.ts` apply high-pressure special governance to Bash — high-risk capability must carry denser constraints
+
+Portable engineering principles from this chapter:
+
+- Let models propose actions, but do not grant authority automatically
+- Preserve causality order in tool scheduling, even under parallel execution
+- Give interruption first-class semantics — do not leave it to generic exception handling
+- Treat high-risk tools as explicit exceptions, not generic channels
+- A tool system protects both users and runtime consistency
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Previous: Query loop" icon="arrow-left" href="/book1/query-loop-heartbeat">
+    The continuous execution loop that manages stateful multi-turn execution and recovery.
+  </Card>
+  <Card title="Next: Context, memory, and compact" icon="arrow-right" href="/book1/context-memory-compact">
+    More context is not always better — how memory, CLAUDE.md, and compact form a context-governance regime.
+  </Card>
+</CardGroup>

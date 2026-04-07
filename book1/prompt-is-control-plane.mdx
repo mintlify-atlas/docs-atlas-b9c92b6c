@@ -1,0 +1,135 @@
+---
+title: "Prompt is not personality, prompt is the control plane"
+description: How system prompts define behavior protocols, execution boundaries, and failure behavior in Claude Code
+---
+
+Most developers encounter "system prompt" and think of persona: who the assistant is, how it sounds, whether it should be warm or concise. For chat-only systems, that framing can be enough. For an agent system that reads files, calls tools, touches shells, manages permissions, and executes across turns, it is insufficient — and sometimes dangerous.
+
+The reason is simple. Persona language answers "what it looks like." A control plane answers "what it can do, when it can do it, what happens when it fails, and who owns fallback." Claude Code makes this distinction explicit in its source structure. The system prompt is not one paragraph handed to a model. It is a layered assembly of behavioral blocks — closer to a runtime protocol than a character biography.
+
+<Warning>
+Treating prompt as personality is a recurring anti-pattern in agent system design. A system with a pleasant persona but no execution discipline can still apologize eloquently when it fails. Apology is not runtime design. The prompt must define boundaries, not just tone.
+</Warning>
+
+## Layered structure, not monolithic text
+
+In `getSystemPrompt()` at `src/constants/prompts.ts:444`, Claude Code returns an array of sections, not one complete string. This structural detail matters: once prompt becomes multi-block, the system formally acknowledges that different constraints have different duties.
+
+<Tabs>
+  <Tab title="Identity and mission">
+    At `src/constants/prompts.ts:175`, the system states its role as an interactive agent that uses available tools to complete software engineering tasks, including safety constraints such as not guessing URLs.
+
+    This section answers "what the agent is" — a bounded executor, not a general oracle. The framing is deliberately functional, not expressive.
+  </Tab>
+  <Tab title="System-level rules">
+    Starting at `src/constants/prompts.ts:186`, the system defines:
+
+    - Which text is visible to users
+    - That tool calls may trigger permission approval
+    - That denied actions must not be mechanically retried
+    - That system reminders may appear inside tool results and user messages
+    - That context may be automatically compacted
+
+    These rules share one property: they do not care whether the model looks like a smart assistant. They care whether it is a disciplined executor. That is control-plane tone — boundary definition is the primary mission.
+  </Tab>
+  <Tab title="Engineering instructions">
+    Starting at `src/constants/prompts.ts:199`, engineering instructions govern how work gets done: do not add requirements casually, do not optimize beyond authorization, do not hide failed validation to look polished, do not invent abstractions unnecessarily.
+
+    These may look like writing-style guidance, but they are tightly coupled to engineering constraints. A model that "helpfully optimizes everything" may appear enthusiastic from a product perspective and still be dangerous from an engineering one.
+  </Tab>
+  <Tab title="Static vs dynamic segments">
+    At `src/constants/prompts.ts:560`, Claude Code places explicit boundaries between static and dynamic prompt segments. Static content is turn-stable and cacheable. Dynamic content changes per turn and must not be mixed with static content in ways that invalidate the cache unnecessarily.
+
+    Once a system asks "which part of the prompt invalidates cache," it has stopped treating prompt as copywriting. Copywriting optimizes expressiveness. Control planes optimize governability, reuse, and predictable behavior cost.
+  </Tab>
+</Tabs>
+
+## Precedence structure, not "latest write wins"
+
+If prompt were just text, that alone would not prove control-plane status. What does is strict precedence.
+
+In `buildEffectiveSystemPrompt()` at `src/utils/systemPrompt.ts:28`, prompt sources are composed in explicit order:
+
+1. Override system prompt
+2. Coordinator system prompt
+3. Agent system prompt
+4. Custom system prompt
+5. Default system prompt
+
+Then `appendSystemPrompt` is uniformly appended at the end.
+
+Claude Code does not believe one default prompt solves all contexts. It admits multiple operating contexts — coordinator mode needs dedicated behavior rules, agent mode needs role-specific duties, users can override or append via CLI, and the default prompt is only the baseline when no higher-priority source applies.
+
+<Note>
+After `src/utils/systemPrompt.ts:99`, proactive mode is handled specially: when both agent prompt and proactive mode exist, agent prompt no longer replaces the default prompt — it is appended after it. This reveals that baseline constraints cannot always be dropped. New agent behavior should layer on top of default discipline, not replace it wholesale.
+
+Think of it as a general constitution plus role-specific job descriptions. Job descriptions can extend duties, but should not wipe out foundational rules.
+</Note>
+
+## Prompt connected to memory systems
+
+Claude Code's handling of `CLAUDE.md` and memory makes explicit that prompt here is an entry point for full context governance, not just a paragraph shown to the model.
+
+In `getClaudeMds()` at `src/utils/claudemd.ts:1153`, the system gathers project instructions, local instructions, team memory, and auto memory into a unified format and merges them into prompt-adjacent context. It labels provenance explicitly: project-level instructions, user-private project instructions, shared team memory, or cross-session persisted auto memory.
+
+In `buildMemoryLines()` at `src/memdir/memdir.ts:187`, the system turns memory-writing rules themselves into part of prompt:
+
+- Memory is a file-based persistence system
+- `MEMORY.md` is an index, not body text
+- Frontmatter should be written in a specific form
+- Certain information should not be saved
+- Plans and tasks should not be misused as memory entries
+
+This extends prompt duty from "constrain current behavior" to "constrain how future knowledge is deposited." That is beyond ordinary prompting. Claude Code does not only define "how to speak this turn" — it defines "how long-lived memory is formed." Once a system reaches this stage, prompt can no longer be tone. It becomes institution.
+
+## Caching and compute cost
+
+Most prompt discussions ignore performance. The common assumption is: prompt is just text fed to models, so write it and be done. Claude Code is more pragmatic — prompt is also compute cost.
+
+In `src/constants/systemPromptSections.ts:16`, prompt sections are split into:
+
+- Cacheable `systemPromptSection`
+- Cache-breaking `DANGEROUS_uncachedSystemPromptSection`
+
+`resolveSystemPromptSections()` prefers cache reuse and recomputes only when necessary. `clearSystemPromptSections()` clears section state after `/clear` or `/compact`.
+
+This is still control-plane design. A production prompt system cannot optimize only expressive power while ignoring throughput, latency, and cache behavior. Design here explicitly assumes some content is turn-stable while other content changes per turn — and they must not be mixed in a way that burns cache.
+
+## User customization within structure
+
+Claude Code does not lock users into the default prompt. CLI explicitly supports override and append.
+
+After `src/main.tsx:1342`, the system handles `--system-prompt`, `--system-prompt-file`, `--append-system-prompt`, and `--append-system-prompt-file`. Users can bring custom rules.
+
+But regardless of override or append, the final assembly still goes through `buildEffectiveSystemPrompt()`. Customization is allowed; order is not abandoned. Users can change content. The system retains structure.
+
+Customization without structure decays into arbitrary drift: one section added today, another removed tomorrow, some agent replacing baseline constraints the day after. Behavior starts to look like ad hoc oral announcements. Claude Code chooses a different path — let users modify, but force modifications through fixed layering and precedence.
+
+## Why prompt here is closer to constitution than dialogue lines
+
+Dialogue lines are what characters say on stage. A constitution defines power boundaries, duty relations, and exception handling. Claude Code prompt satisfies the structural conditions for the latter:
+
+- It is layered, not monolithic
+- It has precedence, not "latest write wins"
+- It forms a full control plane together with memory, `CLAUDE.md`, agent instructions, and MCP instructions
+- It has cache and dynamic section mechanics, not ad hoc text concatenation
+- It is tightly coupled to runtime, not floating outside the system as decoration
+
+That is also why "writing a good prompt" in isolation has limited value. The harder question is where prompt sits in system architecture, which modules it coordinates with, and whether it participates in governance of permissions, state, context, and long-term memory. Without those answers, a so-called good prompt is usually only temporarily correct in one smooth scenario.
+
+The principle from this chapter:
+
+> Prompt is valuable only when it is integrated into explicit control structure.
+
+Claude Code source supports this across modules: `constants/prompts.ts` structures prompt as segmented control blocks; `utils/systemPrompt.ts` defines strict source precedence; `utils/claudemd.ts` integrates project and long-term memory; `memdir/memdir.ts` uses prompt to define long-term memory write protocol; `constants/systemPromptSections.ts` turns prompt into runtime objects that are cacheable, invalidatable, and recomputable by section.
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Previous: Why harness engineering" icon="arrow-left" href="/book1/why-harness-engineering">
+    The case for treating agent systems as engineering problems, not prompting problems.
+  </Card>
+  <Card title="Next: Query loop" icon="arrow-right" href="/book1/query-loop-heartbeat">
+    Even the best control plane must land inside execution cycles. Prompt defines boundaries; loops decide fate.
+  </Card>
+</CardGroup>

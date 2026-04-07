@@ -1,0 +1,112 @@
+---
+title: "Delegation, verification, and persistent state"
+description: How each harness prevents a system from grading itself — verification independence, delegation patterns, and state persistence
+---
+
+When people hear "multi-agent," they often react as if they were hearing a corporate headcount plan and immediately imagine higher efficiency. But the truly difficult part is never the mere presence of more agents. It is how responsibility gets divided.
+
+<Warning>
+  **The self-grading anti-pattern**: If the same system executes, summarizes, verifies, and writes its own review, the result is usually comforting and not especially reliable: *good job*. A harness that allows an agent to both implement and certify its own implementation has no meaningful verification layer. This is the central failure mode that both Claude Code and Codex are designed to prevent.
+</Warning>
+
+## The real problem in multi-agent systems is responsibility
+
+Once agents are delegating work to other agents, two questions become critical:
+
+1. Who actually has authority to declare a task done?
+2. Who owns cleanup if something goes wrong?
+
+Both Claude Code and Codex refuse to let "done" be declared solely by the executing agent. They approach the structural solution differently.
+
+<Tabs>
+  <Tab title="Claude Code">
+    Claude Code's multi-agent mechanism remains centered on the main loop and task progression. The primary agent should not do everything itself, and it definitely should not both implement and certify the implementation.
+
+    Multi-agent work is used primarily to handle:
+
+    - outsourced exploration tasks
+    - split implementation tasks
+    - synthesis of results
+    - independent verification
+
+    This architecture fits Claude Code's overall temperament. Its strength already lies in runtime orchestration, so multi-agent naturally becomes part of the governance framework for getting the current task forward. It did not begin with a grand agent platform and then insert tasks into it. It began with field-dispatch problems and developed agent partitioning from there.
+
+    **Recovery and closure**: Claude Code cares deeply about task cleanup, parent-child abort propagation, subagent lifecycle hooks, and similar concerns. In its world, multi-agent work is first a live runtime phenomenon — if the live scene goes wrong, the system must be able to close it down quickly. It resembles a chief engineer on site, worrying about what holes remain after people leave.
+  </Tab>
+  <Tab title="Codex">
+    In Codex, delegation is more visibly defined as tool interface. That pushes multi-agent closer to the status of a formal subsystem.
+
+    The agent-related tools in `tools/src/lib.rs` — `create_spawn_agent_tool_v*`, `create_wait_agent_tool_v*`, `create_send_message_tool`, and `create_close_agent_tool_v*` — show that delegation in Codex is formal tool capability rather than runtime improvisation.
+
+    In `agent_tool.rs`, each operation has its own schema:
+
+    - `spawn_agent` — creates a delegated agent
+    - `send_input` — distinguishes `interrupt=true` from default queued delivery
+    - `wait_agent` — parameterized with default, minimum, and maximum timeout ranges
+    - `close_agent` — explicitly documents closing open descendants as well
+
+    Codex is not merely offering "ask another agent for help." It is turning preemption, waiting, and cleanup into protocol fields.
+
+    **Recovery and closure**: Codex leans toward bringing agent lifecycle under explicit state management and invocation protocol. It cares not only whether a subagent died, but also how that delegated act should persist as a system event. It resembles an organizer with project infrastructure, worrying whether every collaboration act entered the record system.
+  </Tab>
+</Tabs>
+
+## Verification independence: stopping the system from grading itself
+
+Verification so often turns ceremonial for one major reason: the system lacks a good enough state handoff. What was just done, why it was done, which tools were used, and which files were touched all matter. If that information lives only in the executing agent's head, the verification phase turns into a performance that looks serious but is starved of material.
+
+<Tabs>
+  <Tab title="Claude Code">
+    Claude Code addresses verification by keeping session state, tool results, and recovery branches continuously visible inside runtime, then pairing that continuity with an independent verification discipline.
+
+    The key move is role separation: verify is treated as an independent discipline rather than a polite closing flourish. The system refuses to let the executing agent self-certify. This is a runtime governance principle — the main loop enforces role partitioning through how work is dispatched and how results are returned.
+  </Tab>
+  <Tab title="Codex">
+    Codex is more likely to provide explicit material foundations for verification through thread, rollout, message history, and state DB bridge structures.
+
+    A system with session-archive awareness — thread IDs, persisted rollout state, and a queryable message history — can answer "What exactly happened just now?" with structural evidence rather than memory. Verification has material to work with.
+
+    Because delegation actions in Codex are explicit tool calls (not hidden runtime maneuvers), they are easier to record, audit, and compose. This makes the verification role less dependent on runtime memory and more dependent on the record system.
+  </Tab>
+</Tabs>
+
+## How each system repairs a different verification deficit
+
+The two systems are not in conflict on verification. They repair different problems:
+
+| Deficit repaired | Claude Code | Codex |
+|---|---|---|
+| **Primary failure mode addressed** | Executor too immersed in the live scene to self-assess | Collaboration leaving no structured evidence |
+| **Verification foundation** | Runtime role separation and independent verification discipline | Thread state, message history, explicit tool records |
+| **Delegation representation** | Runtime field dispatch with lifecycle cleanup | Formal tool interface with schema-defined operations |
+| **State handoff** | Session state visible inside main loop | Persistent thread, rollout, and state DB structures |
+
+## Persistent state: verification is only as good as the evidence
+
+Both systems recognize that persistent state is what separates meaningful verification from ceremonial review. Without a good enough record of what happened, any verification step becomes an exercise in reconstruction from memory.
+
+<Note>
+  Thread IDs, session indexing, and persisted state are first-class concepts in a well-governed harness — not implementation details. A system that relies on the model to "remember" what happened across a long session has not solved state persistence; it has deferred the problem.
+</Note>
+
+Claude Code maintains continuity primarily through the main runtime loop — session state is continuously visible inside the executing context. This is effective for single-session task governance and makes recovery fast when something goes wrong mid-task.
+
+Codex's state infrastructure — `core/src/thread_manager.rs`, `core/src/rollout.rs`, `core/src/state_db_bridge.rs`, and `core/src/message_history.rs` — is designed for durability across sessions and for external auditing. State is not only available during execution; it is structured as a platform-level record.
+
+## Summary
+
+> Claude Code's multi-agent design emphasizes runtime separation of responsibility and field closure, while Codex's multi-agent design emphasizes tool-mediated delegation, state handoff, and auditable collaboration.
+
+Both are trying to stop the system from giving itself inflated grades.
+
+- Claude Code leans more on role separation and verification discipline.
+- Codex leans more on explicit interfaces, thread state, and collaboration records.
+
+<CardGroup cols={2}>
+  <Card title="Convergence and divergence" icon="arrows-to-circle" href="/book2/convergence-and-divergence">
+    The final comparative judgment — where these two harnesses agree, where they genuinely diverge, and what that means for the field.
+  </Card>
+  <Card title="Skills, hooks, and local governance" icon="building-columns" href="/book2/skills-hooks-and-local-governance">
+    Return to the previous chapter on how each system encodes local rules, skills, and organizational habits.
+  </Card>
+</CardGroup>

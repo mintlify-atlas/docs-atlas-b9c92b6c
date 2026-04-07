@@ -1,0 +1,181 @@
+---
+title: "Context governance: memory, CLAUDE.md, and compact"
+description: How Claude Code manages context as a budgeting regime — memory layers, CLAUDE.md, and the compact mechanism
+---
+
+Context is not a warehouse where more information equals more intelligence. In Claude Code, context is an expensive, inflation-prone, self-polluting budget. The source code reflects this consistently: what to load, what to truncate, what to preserve long-term, and what to summarize short-term are treated as serious runtime governance decisions.
+
+This chapter traces how Claude Code avoids being crushed by what it remembers, across four distinct memory layers and a compact mechanism that acts as a controlled reboot — not a chat recap.
+
+> **Source references**: `src/utils/claudemd.ts`, `src/memdir/memdir.ts`, `src/services/SessionMemory/prompts.ts`, `src/services/compact/autoCompact.ts`, `src/services/compact/compact.ts`
+
+---
+
+## Memory layers
+
+Claude Code separates instruction sources into four distinct layers. Each serves a different time horizon and scope of authority.
+
+<Tabs>
+  <Tab title="Long-term rules">
+    **CLAUDE.md files** are the policy layer. They carry stable collaboration rules that outlive any single session or user message.
+
+    `src/utils/claudemd.ts` defines four source tiers:
+
+    - **Managed memory**: `/etc/claude-code/CLAUDE.md` — system-wide configuration
+    - **User memory**: `~/.claude/CLAUDE.md` — personal preferences
+    - **Project memory**: root `CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/rules/*.md` — repository constraints and team norms
+    - **Local memory**: `CLAUDE.local.md` — private overrides not committed to version control
+
+    Files are loaded by precedence and directory proximity. Rules closer to the current working directory get higher priority. More private and local rules are placed closer to the model's attention front.
+
+    This design refuses to blend long-lived collaboration policy with temporary chat context. Team norms and repository constraints outlive any single message. Forcing them into chat history creates two bad outcomes: either reinject everything every turn (context waste), or rely on model recollection (eventual failure).
+
+    One revealing detail: `claudemd.ts` supports `@include`, but only for explicitly allowed text extensions. This guards against accidentally including binaries, giant docs, or prompt-toxic artifacts — practical restraint asking first "what deserves memory entry, and what becomes pollution if admitted?"
+  </Tab>
+  <Tab title="Persistent memory">
+    **MEMORY.md** is the fine-grained persistent memory layer, governed by `src/memdir/memdir.ts`. The critical design decision: `MEMORY.md` is an index, not a diary.
+
+    `buildMemoryLines()` structures memory writing as two steps:
+
+    1. Write concrete memory into dedicated topic files
+    2. Add one-line pointers in `MEMORY.md`
+
+    This split exists because entrypoint files are loaded frequently. Once they bloat, context is gradually dragged down by index weight.
+
+    Hard limits enforce this discipline:
+
+    - `MAX_ENTRYPOINT_LINES = 200`
+    - `MAX_ENTRYPOINT_BYTES = 25_000`
+
+    Beyond those limits, `truncateEntrypointContent()` triggers and appends an explicit warning: only a partial load was performed; move details into topic files.
+
+    **The principle**: long-term memory must split into entrypoint and body. Entrypoint provides low-cost addressing; body carries dense content. Mix them and the entrypoint fails as both table of contents and full text — eventually becoming neither.
+  </Tab>
+  <Tab title="Session continuity">
+    **Session memory** solves "where exactly were we before this turn?" — the hardest real-world continuity problem inside a single session.
+
+    `src/services/SessionMemory/prompts.ts` defines fixed template sections:
+
+    - `Current State`
+    - `Task specification`
+    - `Files and Functions`
+    - `Workflow`
+    - `Errors & Corrections`
+    - `Codebase and System Documentation`
+    - `Learnings`
+    - `Key results`
+    - `Worklog`
+
+    These track status, pitfalls, changed files, and next actionable continuation — not a journal. The update prompt is equally explicit: use the Edit tool only to update the notes file; do not talk about note-taking itself; do not alter the template structure; keep `Current State` aligned with the latest work; keep every section dense but budget-aware.
+
+    Token budgets are enforced here too: `MAX_SECTION_LENGTH = 2000` and `MAX_TOTAL_SESSION_MEMORY_TOKENS = 12000`. Beyond budget, the runtime requests aggressive condensation, with explicit priority on `Current State` and `Errors & Corrections`.
+
+    Session memory is not "save another copy of chat history." It distills the session into an operational continuation brief — the minimum structure needed to keep working, not a full replay.
+  </Tab>
+  <Tab title="Temporary dialogue">
+    **In-context dialogue** is the most ephemeral layer — the raw exchange of messages within a session. It is the layer most subject to inflation and the first candidate for compaction.
+
+    Unlike the other three layers, temporary dialogue has no explicit governance file. Its governance is the compact mechanism itself: when session length approaches window limits, `autoCompact.ts` and `compact.ts` take over, translating this ephemeral layer into a post-compact substrate that preserves working semantics while releasing token pressure.
+
+    This is why the compact mechanism is discussed separately: it operates specifically on the temporary dialogue layer, converting it into session memory and preserved attachments so that the other three layers remain stable and accessible.
+  </Tab>
+</Tabs>
+
+---
+
+## The CLAUDE.md role
+
+The CLAUDE.md system ensures that stable rules are discoverable, layered, and composable. It is a persistent instruction system, not a chat artifact.
+
+This separation is critical for any team-based or long-running agent deployment. If policy lives only in chat history, every session must either re-establish it from scratch or rely on model recollection degrading over turns. CLAUDE.md makes policy explicit, versioned, and proximity-ordered so that rules closest to the current work take precedence.
+
+The `@include` guard in `claudemd.ts` is worth noting: convenience features always carry a risk surface. The explicit allowlist for text extensions is the system asking "what deserves memory entry?" before admitting content.
+
+---
+
+## The compact mechanism
+
+Even with well-organized memory layers, long sessions approach window limits. `src/services/compact/autoCompact.ts` admits this reality and handles it as a budgeting problem, not an emergency.
+
+### When compact triggers
+
+`getEffectiveContextWindowSize()` first subtracts a reserved output budget:
+
+- `MAX_OUTPUT_TOKENS_FOR_SUMMARY` reserves **20,000 tokens** directly — compact itself costs budget
+- `getAutoCompactThreshold()` subtracts another `AUTOCOMPACT_BUFFER_TOKENS = 13,000`
+
+The system pre-reserves room for failure and recovery. Systems that reserve nothing appear frugal in normal cases but defer risk billing to later turns.
+
+### What compact actually does
+
+Many systems treat compact as "summarize the previous chat." `compactConversation()` in `compact.ts` does much more: it disassembles old context, summarizes, then reinjects required runtime attachments to rebuild a post-compact world that can still work.
+
+Pre-summary cleaning steps:
+
+- `stripImagesFromMessages()` replaces images and documents with markers (`[image]`, `[document]`) — high token cost, low summary value
+- `stripReinjectedAttachments()` removes attachments that will be reinjected anyway, avoiding token waste
+
+After successful compact, the runtime does not keep only one summary line. It also:
+
+- Clears stale `readFileState`
+- Regenerates post-compact file attachments
+- Reinjects plan attachments and plan mode attachments
+- Reinjects invoked-skill attachments (token-capped per skill)
+- Reinjects deferred tools, agent listing, and MCP instruction delta attachments
+- Runs session start hooks and post-compact hooks
+- Writes compact boundary messages with pre-compact token counts and boundary metadata
+
+**Compact is a controlled reboot, not a chat recap.** Old context is translated into new operating substrate. Systems that do only the summary half discover that after compact they "remember roughly" but lost tool state, plan state, and attachment state — spending turns rediscovering themselves.
+
+### Compact failure and circuit breaking
+
+`AutoCompactTrackingState` tracks `compacted`, `turnCounter`, `turnId`, and `consecutiveFailures`. Compact can fail, and the system is rate-limited against repeated failure.
+
+`MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3` enforces a circuit breaker. Once triggered, the system skips compact even if `shouldAutoCompact` says it is due. The source notes this arose from a hard lesson: large numbers of API calls were once wasted on repeated autocompact failure before the circuit breaker was added.
+
+There is also a fallback for the compact request itself hitting `prompt too long`: `truncateHeadForPTLRetry()` strips older API rounds in chunks from the head and retries. The system admits not only the main path can fail — rescue tooling can also fail, and a last-resort escape hatch must exist.
+
+---
+
+## Context budget governance
+
+<Note>
+More context is not better. A model receiving a bloated context window with stale history, redundant recaps, and low-value tool outputs does not reason more accurately — it reasons under more noise. Claude Code's consistent engineering choice is to preserve action semantics, not maximize apparent information volume.
+
+File specifics, current plans, error corrections, and skill constraints directly determine whether the next action can be correct. Long repetitive chat history and easily retrievable runtime data do not deserve permanent seats.
+</Note>
+
+Claude Code's governance choices across layers reflect one consistent preference: **preserve working semantics**.
+
+- Per-skill truncation beats dropping — even when cutting, keep critical leading constraints rather than dropping whole blocks
+- `Current State` and `Errors & Corrections` get priority in session memory condensation
+- Post-compact context restores plan mode, file attachments, and skill state — not just language surface
+- Entrypoint files are hard-truncated to force brevity and addressability
+
+The fifth principle from this chapter: **context is working memory, and governance exists to keep the system able to continue work.**
+
+---
+
+## Portable engineering principles
+
+Drawn from `claudemd.ts`, `memdir.ts`, `SessionMemory/prompts.ts`, `autoCompact.ts`, and `compact.ts`:
+
+- Layer long-term rules, persistent memory, and session continuity — never mix them with temporary dialogue
+- Keep index-like memory artifacts small or they drag down the entire system
+- Session summaries should serve continuation, not complete recollection
+- Compact is a primary path, not an emergency side path
+- Post-compact context must preserve runtime semantics, not merely language surface
+- Any automated recovery mechanism needs counters, rate limits, and circuit breakers
+
+---
+
+## Continue reading
+
+<CardGroup cols={2}>
+  <Card title="Errors and recovery" icon="circle-exclamation" href="/book1/errors-and-recovery">
+    What happens when governance meets hard limits: prompt too long, max output tokens, hook loops, and competing recovery branches.
+  </Card>
+  <Card title="Multi-agent and verification" icon="sitemap" href="/book1/multi-agent-and-verification">
+    When one agent delegates to another, error and recovery stop being single-thread concerns and become organizational design.
+  </Card>
+</CardGroup>

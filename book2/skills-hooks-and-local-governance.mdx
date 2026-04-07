@@ -1,0 +1,138 @@
+---
+title: "Skills, hooks, and local rules: how a system learns local discipline"
+description: How Claude Code and Codex encode organizational habits and local governance into their harness systems
+---
+
+Any general-purpose coding agent that starts doing real work for a team eventually collides with the same fact: companies have their own rules, repositories have their own rules, directories have their own rules, and people have their own peculiar habits. If a system cannot absorb those local institutions, it remains trapped in demo environments.
+
+Both Claude Code and Codex offer answers. They simply point in different directions.
+
+## Local governance as field memory vs. structured injection
+
+The deeper question is not whether a system supports skills, hooks, and local rules. Both do. The question is what those mechanisms *are* — temporary field notes or formal institutional assets.
+
+<Tabs>
+  <Tab title="Claude Code">
+    Claude Code's localizing capacity lands primarily in four mechanisms:
+
+    - `CLAUDE.md` — tells the system what counts as common sense in this repo, this directory, and this team
+    - **Skills** — package repeatable workflows for reuse
+    - **Hooks** — attach team governance to lifecycle points in the session
+    - **Session memory** — prevents each turn from starting over from zero
+
+    What all four share is proximity to the task scene. The point is to get rules into the current session and into current execution rather than to establish one eternal organization-wide constitution first.
+
+    Claude Code resembles an engineer willing to carry a notebook and copy down local custom wherever it goes. That is highly practical. It fits environments where multiple projects, directories, and local constraints coexist.
+
+    The downside is also clear: without deliberate cleanup, knowledge expands as field patches. When it spreads to many teams, extra editorial work is required — otherwise everyone writes their own `CLAUDE.md`, invents their own skills, and the organization starts printing its own textbooks by province.
+  </Tab>
+  <Tab title="Codex">
+    Codex also has skills, local rules, and hooks, but the temperament is more institutional.
+
+    **Skills** in Codex (`skills/src/lib.rs`) are installed into `CODEX_HOME/skills/.system` and tracked with hashes or fingerprints. A skill in Codex is not merely text temporarily read into context — it is an installed, managed, versionable asset. The `install_system_skills()` function computes a fingerprint and skips reinstalling when the marker already matches, treating skills like deployable artifacts rather than templates casually reread at startup.
+
+    **`AGENTS.md`** in Codex carries ideas of scope and hierarchy. Local rules are not only content; they carry positional relationships.
+
+    **Hooks** in Codex (`hooks/src/engine/mod.rs`) split events explicitly into a formal lifecycle:
+
+    - `session_start`
+    - `pre_tool_use`
+    - `post_tool_use`
+    - `user_prompt_submit`
+    - `stop`
+
+    Each handler carries structured information: event name, matcher, timeout, status message, source path, and display order. The engine also separates `preview_*` paths from `run_*` paths, meaning the system can explain which handlers would fire before actually executing them.
+
+    Codex is not merely offering "drop in a callback wherever convenient." It is a formal lifecycle event system.
+  </Tab>
+</Tabs>
+
+## Governance mechanisms in detail
+
+<AccordionGroup>
+  <Accordion title="Skills: reusable workflow packages">
+    Skills represent repeatable workflows that should survive across sessions and teams.
+
+    In Claude Code, skills are packaged workflows read into context when invoked — closer to a template that an engineer copies down for the current job. They are effective and fast to deploy, but their governance depends on the team's editorial discipline.
+
+    In Codex, skills are versioned assets with a content fingerprint. The system decides when a cached skill is stale and triggers removal and rewrite only when the fingerprint mismatches. This small detail signals the deeper difference: Codex treats skills like deployable packages, not like notes.
+
+    <Tip>
+      When choosing how to structure skills for your team, ask whether you need the skill to be auditable and version-controlled across deployments. If yes, a Codex-style approach to skill management is stronger.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Hooks: attaching governance to lifecycle points">
+    Hooks are the mechanism by which team rules become structural rather than advisory.
+
+    In Claude Code, hooks attach team governance to lifecycle points within the session. They work because they are close to the live action — whatever the current task needs, the hook can intervene at the right moment.
+
+    In Codex, hooks are a formal event system with named events, structured handler metadata, and a preview/run split. The `session_start`, `pre_tool_use`, `post_tool_use`, `user_prompt_submit`, and `stop` events are explicit protocol points. On Windows, Codex even disables `codex_hooks` with an explicit warning because support is not complete — meaning Codex tries to make hook *capability itself* explainable.
+
+    The Codex approach trades some immediacy for auditability: it becomes possible to ask which hooks would fire for a given action before committing.
+  </Accordion>
+
+  <Accordion title="Local rules: CLAUDE.md vs. AGENTS.md">
+    The contrast between `CLAUDE.md` and `AGENTS.md` captures the temperamental difference well.
+
+    `CLAUDE.md` in Claude Code is field-note style: it tells the agent what counts as common sense in this repo, for this team, right now. It is assembled at runtime and injected into the session. Its power is immediacy and flexibility — it is easy to update for any project.
+
+    `AGENTS.md` in Codex carries scope and hierarchy as structural concepts. Local rules are not only content — they carry positional relationships that determine how they interact with rules at other scopes. This makes Codex local rules easier to reason about organizationally, at the cost of requiring more explicit setup.
+  </Accordion>
+
+  <Accordion title="Session memory and state handoff">
+    Claude Code uses session memory to prevent each turn from starting human life over from zero. This is a runtime continuity mechanism — it lives in the current session and serves the current task.
+
+    Codex addresses state persistence more formally through thread, rollout, and state DB bridge structures. State is not only available within the current session; it is structured for handoff and audit.
+
+    The consequence: Claude Code's session memory is faster to work with in a single session, while Codex's explicit state structures are more durable across sessions and more accessible to verification.
+  </Accordion>
+</AccordionGroup>
+
+## Two different team feels
+
+The difference produces two distinct organizational personalities.
+
+| Dimension | Claude Code | Codex |
+|---|---|---|
+| Primary metaphor | Field memory and runtime injection | Structured assets and lifecycle events |
+| Local rules | Near the task scene, fast to absorb | Hierarchical, versioned, explicit |
+| Skill management | Template reuse | Installed, fingerprinted, auditable |
+| Hook system | Attaches to session lifecycle | Formal event protocol with preview/run separation |
+| Organizational feel | Old employee who knows the floor | Newcomer with strong institutional instincts |
+
+<Note>
+  This is not a judgment about which is better. It is a description of the tradeoff: closer to the scene means more elastic; more institutionalized means easier to reproduce.
+</Note>
+
+## Consequences for organizational reproducibility
+
+This difference matters most when an organization tries to reproduce itself across teams.
+
+If a system relies mainly on injected field experience, it adapts faster to new repositories and remains effective in dense local context. But at scale, without deliberate editorial work, local governance fragments.
+
+If a system relies mainly on structured injection and lifecycle mounting, rules are easier to distribute consistently, version, and audit. The price is learning cost: the team must first accept more explicit institution.
+
+This is a classic engineering tradeoff:
+
+- the closer you stay to the scene, the more elastic the system becomes
+- the more institutionalized you become, the easier you are to reproduce
+
+The real determinant is not which system is abstractly superior. It is which kind of stability the team actually needs.
+
+## Summary
+
+> Claude Code tends to turn local governance into field memory and runtime injection, while Codex tends to turn local governance into structured assets and lifecycle event systems.
+
+Claude Code asks: *How do we make the agent work here more like a local?*
+
+Codex asks: *How do we make local rules enter a governable institutional framework?*
+
+<CardGroup cols={2}>
+  <Card title="Delegation, verification, and state" icon="shield-check" href="/book2/delegation-verification-and-state">
+    The next chapter moves into multi-agent work, independent verification, and persistent state — what happens when several agents begin working at once.
+  </Card>
+  <Card title="Tools, sandbox, and exec policy" icon="wrench" href="/book2/tools-sandbox-and-exec-policy">
+    Return to the previous chapter on how each system governs tool access, sandbox boundaries, and execution policy.
+  </Card>
+</CardGroup>

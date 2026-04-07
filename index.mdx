@@ -1,97 +1,70 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Harness Books"
+description: "Two engineering books on harness design for AI coding agents — exploring how constraint structures, control planes, and team practices keep unstable models bounded and accountable."
 ---
 
-## Setting up
+Harness Books contains two books that pursue the same engineering question: once a code-writing model is placed inside terminals, repositories, permission systems, and team workflows, what keeps the overall system bounded, continuous, and accountable for consequences?
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Book 1: A Design Guide to Claude Code" icon="book" href="/book1/preface">
+    Explores Claude Code's runtime architecture — control plane, query loop, tool permissions, context governance, recovery, and multi-agent verification.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Book 2: Comparing Claude Code and Codex" icon="book-open" href="/book2/preface">
+    Places Claude Code and Codex side by side to reveal how each harness distributes authority and encodes discipline at different architectural layers.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Reading paths" icon="map" href="/reading-paths">
+    Choose where to start based on your background and what questions you want answered first.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Core concepts" icon="lightbulb" href="/core-concepts">
+    The key ideas behind harness engineering — control planes, query loops, tool permissions, context governance, and team institutions.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What these books are about
 
-Everything you need to create world-class documentation.
+The real danger with AI coding agents is not that a model occasionally says something wrong — it is that the system has no structure for handling consequences. These books focus on how a harness organizes constraints and execution, and how an inherently unstable model can be folded into a sustainable engineering order.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Control plane" icon="sliders" href="/book1/prompt-is-control-plane">
+    Prompts are not personality — they are runtime control structure defining execution boundaries and failure behavior.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Query loop" icon="rotate" href="/book1/query-loop-heartbeat">
+    The continuous execution loop that manages stateful multi-turn execution, recovery, and context budgeting.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Tool governance" icon="shield-halved" href="/book1/tools-permissions-interrupts">
+    Why agents cannot touch the world directly — scheduling, authorization, interrupts, and blast radius control.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Context governance" icon="database" href="/book1/context-memory-compact">
+    Memory, CLAUDE.md, and compact as a budgeting regime for sustainable long-session operation.
   </Card>
-</Columns>
+  <Card title="Error recovery" icon="arrows-rotate" href="/book1/errors-and-recovery">
+    Building agent systems that keep working after failure — recovery paths, circuit breakers, and continuation.
+  </Card>
+  <Card title="Team institutions" icon="people-group" href="/book1/team-adoption">
+    Turning individual experience into reusable rules, skills, hooks, and organizational harness discipline.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Suggested reading paths
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Tabs>
+  <Tab title="Start with the full frame">
+    Read Book 1 first to understand the runtime architecture and control structure of Claude Code. Then read Book 2 to see how those same design axes appear differently in Codex.
+
+    **Start here:** [Preface — Book 1](/book1/preface)
+  </Tab>
+  <Tab title="Already know the tools">
+    If you are already familiar with coding-agent tools and want the architectural comparison directly, start with Book 2.
+
+    **Start here:** [Why we compare Claude Code and Codex](/book2/why-this-comparison)
+  </Tab>
+  <Tab title="Only want the conclusions">
+    Read Book 1 Chapter 9 (ten principles) plus Book 2 Chapter 7 (convergence and divergence) for the condensed judgment.
+
+    **Start here:** [Ten Principles of Harness Engineering](/book1/ten-principles)
+  </Tab>
+</Tabs>
+
+<Note>
+Both books are available in English and Chinese (Simplified). The source repository also includes PDF exports for offline reading.
+</Note>

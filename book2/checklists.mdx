@@ -1,0 +1,270 @@
+---
+title: "Harness comparison checklists"
+description: Practical checklists for determining where your harness sits on the Claude Code–Codex spectrum
+---
+
+If comparison cannot be reduced into checklists, what remains is usually a set of well-phrased but hard-to-use conclusions. This appendix compresses the book's analysis into questions a team can actually discuss.
+
+Use these checklists in two ways:
+
+1. **To diagnose your current harness** — run through each dimension and note where you cannot answer clearly
+2. **To plan a new harness** — identify which dimensions you need to design explicitly before building
+
+<Note>
+  A question you cannot answer clearly is more informative than one you can. Unclear answers reveal which layer of your harness is still at the "good enough to use" stage rather than the "good enough to govern" stage.
+</Note>
+
+## Checklist dimensions
+
+<AccordionGroup>
+  <Accordion title="Control plane" icon="sliders">
+    The control plane determines what instructions the agent actually receives, in what form, and from which sources. A weak control plane means the agent is governed by implicit convention rather than explicit structure.
+
+    **Questions to answer:**
+
+    - Are local rules assembled as free text, or injected as typed fragments with bounded structure?
+    - Can the sources, scope, and precedence of instructions be explained clearly?
+    - Which parts of the prompt are real control plane, and which are merely output style?
+    - Are team rules closer to `CLAUDE.md`-style field notes, or closer to `AGENTS.md`-style structured institutional entry points?
+
+    **What unclear answers signal:**
+
+    The control plane is probably still at the "good enough to use" stage rather than the "good enough to govern" stage. Instructions are present but not governed.
+
+    **Claude Code signal:** Rules are assembled contextually, close to the scene. Control plane is elastic but requires editorial discipline at scale.
+
+    **Codex signal:** Instructions are fragmented into typed units with explicit scope and precedence. The control plane is explicit before any session begins.
+  </Accordion>
+
+  <Accordion title="Continuity and state" icon="database">
+    Continuity determines whether a long session retains meaningful state across turns, interruptions, and handoffs — or whether it relies on the model to reconstruct context from memory.
+
+    **Questions to answer:**
+
+    - Is continuity maintained mainly by a main loop, or mainly by thread / rollout / state?
+    - After interruption, who guarantees closure for the tool ledger, message sequence, and state handoff?
+    - When long sessions inflate, is there an explicit compact / truncation / recovery mechanism?
+    - Are thread IDs, session indexing, and persisted state first-class concepts?
+
+    **What unclear answers signal:**
+
+    If long sessions rely mostly on the model to "remember," there is usually no need to continue the evaluation. State persistence has not been designed.
+
+    **Claude Code signal:** Continuity lives primarily in the main runtime loop. The query engine maintains session state continuously visible inside the executing context.
+
+    **Codex signal:** Continuity lives in thread, rollout, and state DB bridge structures. State is persistent and structured for external audit.
+  </Accordion>
+
+  <Accordion title="Tool governance and approval" icon="shield-halved">
+    Tool governance determines whether the agent's ability to affect the world is explicitly bounded, or whether tool access is governed primarily by runtime convention and the model's own judgment.
+
+    **Questions to answer:**
+
+    - Are tools runtime objects, or schema-defined interfaces?
+    - Are approvals based mainly on field judgment, or on an explicit policy / rule system?
+    - Are dangerous tools specially governed, rather than treated like ordinary read operations?
+    - Can boundaries such as `workdir`, network, sandbox, and approval be expressed explicitly?
+
+    **What unclear answers signal:**
+
+    If the system can only answer "we also have permission controls," the permission system has not actually been designed. Capability is present; governance is not.
+
+    **Claude Code signal:** Tool orchestration is runtime-centered. Bash tool restrictions and permission semantics are part of the main loop's governance discipline.
+
+    **Codex signal:** Tools are schema-defined interfaces. Execution policy (`execpolicy/src/lib.rs`) and sandbox rules are explicit layer structures, not runtime conventions.
+  </Accordion>
+
+  <Accordion title="Local governance" icon="building-columns">
+    Local governance determines whether organizational habits, team rules, and directory-specific constraints enter the system as structural facts — or as informal conventions that agents may or may not absorb.
+
+    **Questions to answer:**
+
+    - Can local rules be layered by directory, team, and task type?
+    - Can skills be treated as reusable slices of institution rather than merely long prompts?
+    - Are hooks attached to explicit lifecycle events?
+    - Do skills, rules, and hooks have version, origin, and trigger boundaries?
+
+    **What unclear answers signal:**
+
+    When team governance relies mainly on oral explanation, the system eventually learns to pretend it understands. Conventions are present; structure is not.
+
+    **Claude Code signal:** Local rules enter as field memory — `CLAUDE.md`, skills injected into session, hooks at lifecycle points. Fast to absorb, elastic, but requires editorial effort at scale.
+
+    **Codex signal:** Local rules enter as structured assets — skills are installed with fingerprints, hooks are formal lifecycle events, `AGENTS.md` carries scope and hierarchy. Requires more setup; easier to govern consistently.
+  </Accordion>
+
+  <Accordion title="Multi-agent and verification" icon="people-group">
+    Multi-agent governance determines whether agent delegation and verification are structurally enforced — or whether parallelism is used primarily for speed without role separation.
+
+    **Questions to answer:**
+
+    - Is multi-agent used for parallelism, or for separation of responsibility?
+    - Is there an independent verification mechanism?
+    - Is delegation represented as explicit tools or explicit state events?
+    - When a child agent fails, times out, or is cancelled, who owns cleanup?
+
+    **What unclear answers signal:**
+
+    A multi-agent system that cannot verify independently and cannot close out cleanly is usually just parallelized disorder.
+
+    **Claude Code signal:** Multi-agent work partitions explore, execute, synthesis, and verification roles. Independent verification is a runtime governance discipline, not a polite closing step.
+
+    **Codex signal:** Delegation is a formal tool interface. `spawn_agent`, `send_input`, `wait_agent`, and `close_agent` each have explicit schemas. Cleanup and timeout are protocol fields, not runtime improvisation.
+  </Accordion>
+</AccordionGroup>
+
+## Which kind of system are you closer to?
+
+Use these signals to locate your harness on the spectrum.
+
+<Tabs>
+  <Tab title="Closer to Claude Code">
+    Your harness resembles Claude Code if:
+
+    - You care most about query loop stability, tool orchestration, interrupts, compaction, and recovery
+    - You are good at getting rules into the live session quickly
+    - Local governance is primarily field-note style — fast to absorb, effective in dense local context
+    - You care primarily about how an agent keeps running inside complex tasks
+    - Continuity is maintained by the main runtime loop
+
+    **Your likely next investment:** Add more explicit structure to make your rules auditable and governable at scale. The field-memory approach eventually requires editorial discipline as the team grows.
+  </Tab>
+  <Tab title="Closer to Codex">
+    Your harness resembles Codex if:
+
+    - You care most about instruction fragments, tool schemas, approval policy, thread / rollout / state
+    - You are good at turning local rules into structured assets
+    - Local governance is primarily institutional — versioned, explicit, hierarchical
+    - You care primarily about how an agent is governed durably inside an organization
+    - Continuity is maintained by thread and state structures
+
+    **Your likely next investment:** Add runtime discipline for long-session survival. Explicit control layers need runtime heartbeat to remain effective when sessions run long or encounter unexpected interruptions.
+  </Tab>
+  <Tab title="Closer to an unfinished prototype">
+    Your harness may be an unfinished prototype if:
+
+    - You can recite vocabulary from both sides, but cannot explain who owns order
+    - You have many capability entry points, but no clear recovery path
+    - You have many rule texts, but no scope or precedence
+    - You have multi-agent execution, but no separation of responsibility and no closure mechanism
+
+    <Warning>
+      A system that can recite vocabulary from both Claude Code and Codex but has committed to neither approach has usually taken the third, easier-looking road: stuffing more bootstrap files, role descriptions, skill explanations, and workspace text into prompt. Such systems appear workable in the short term but expose the same double failure over longer sessions: tokens are expensive, and working semantics are still unstable.
+    </Warning>
+
+    **Your likely next investment:** Name your primary contradiction, choose one skeleton, and build around it before adding capabilities.
+  </Tab>
+</Tabs>
+
+## Six final questions
+
+If time is short, ask only these six. The answers reveal the system's political family.
+
+<AccordionGroup>
+  <Accordion title="1. Who owns the final control — the model or the harness?">
+    The model should be the most productive component, not the authority that decides what is allowed. If the harness cannot override the model's judgment on high-risk actions, the harness is advisory, not structural.
+
+    **Test**: Can the harness stop a dangerous action the model would otherwise take, without asking the model to agree first?
+  </Accordion>
+  <Accordion title="2. Does continuity live mainly in the loop, or in threads and state?">
+    This question reveals whether your continuity is a runtime property or a persistent property. Runtime continuity (loop-based) is fast and elastic but does not survive process restart. Persistent continuity (thread/state-based) is durable and auditable but requires more upfront design.
+
+    **Test**: If the session process crashes and restarts, what survives?
+  </Accordion>
+  <Accordion title="3. Before tools act, who stops the last dangerous move?">
+    The answer should not be "the model." The answer should name a structural mechanism: a permission policy, a sandbox boundary, an interrupt handler, or an approval workflow.
+
+    **Test**: Name the specific mechanism that prevents the most dangerous tool call your agent could make.
+  </Accordion>
+  <Accordion title="4. How do local rules enter the system, and how are they layered?">
+    Rules that enter only through prompt injection are advisory. Rules that enter through structured mechanisms — typed fragments, versioned skills, explicit hook events — are structural. Layering (by directory, team, or task type) determines whether local rules can coexist without overwriting each other.
+
+    **Test**: Can you show how a directory-level rule and an organization-level rule coexist without one silently overriding the other?
+  </Accordion>
+  <Accordion title="5. Who owns verification, and how is it kept independent?">
+    If the agent that implements also verifies, verification is ceremonial. Independence requires either role separation (a different agent or role verifies) or structural material (persistent state and records that a verifier can inspect independently).
+
+    **Test**: Can you describe the mechanism that prevents the implementing agent from self-certifying its own work?
+  </Accordion>
+  <Accordion title="6. After something goes wrong, what evidence lets the team trace the path back?">
+    This is a test of state persistence and audit capability. The answer should name specific artifacts: message history, thread state, tool call records, rollout logs. If the answer is "the model's output" or "what we remember," the audit trail does not exist.
+
+    **Test**: Pick a past incident. What evidence did you have to reconstruct exactly what the agent did and why?
+  </Accordion>
+</AccordionGroup>
+
+## Source map reference
+
+These checklists are grounded in the following source files from each codebase.
+
+<AccordionGroup>
+  <Accordion title="Claude Code primary sources">
+    **Control plane and prompt:**
+    - `src/constants/prompts.ts`
+    - `src/utils/systemPrompt.ts`
+    - `src/utils/claudemd.ts`
+    - `src/memdir/memdir.ts`
+
+    **Runtime loop and recovery:**
+    - `src/query.ts`
+    - `src/QueryEngine.ts`
+    - `src/services/compact/autoCompact.ts`
+    - `src/services/compact/compact.ts`
+
+    **Tools and permissions:**
+    - `src/services/tools/toolOrchestration.ts`
+    - `src/services/tools/toolExecution.ts`
+    - `src/services/tools/StreamingToolExecutor.ts`
+    - `src/hooks/useCanUseTool.tsx`
+    - `src/tools/BashTool/prompt.ts`
+    - `src/tools/BashTool/bashPermissions.ts`
+
+    **Multi-agent, skills, and hooks:**
+    - `src/utils/forkedAgent.ts`
+    - `src/coordinator/coordinatorMode.ts`
+    - `src/tasks/LocalAgentTask/LocalAgentTask.tsx`
+    - `src/tools/SkillTool/SkillTool.ts`
+    - `src/tools/SkillTool/prompt.ts`
+    - `src/utils/hooks/hooksConfigManager.ts`
+  </Accordion>
+
+  <Accordion title="Codex primary sources">
+    **Core module skeleton:**
+    - `core/src/lib.rs`
+    - `tools/src/lib.rs`
+    - `skills/src/lib.rs`
+    - `hooks/src/lib.rs`
+
+    **Instruction fragments and user injection:**
+    - `instructions/src/lib.rs`
+    - `instructions/src/fragment.rs`
+    - `instructions/src/user_instructions.rs`
+    - `docs/agents_md.md`
+
+    **Tools, approvals, and execution policy:**
+    - `tools/src/local_tool.rs`
+    - `tools/src/agent_tool.rs`
+    - `execpolicy/src/lib.rs`
+    - `docs/execpolicy.md`
+    - `docs/sandbox.md`
+
+    **Threads and state:**
+    - `sdk/typescript/src/thread.ts`
+    - `core/src/thread_manager.rs`
+    - `core/src/rollout.rs`
+    - `core/src/state_db_bridge.rs`
+    - `core/src/message_history.rs`
+
+    **Hook event engine:**
+    - `hooks/src/engine/mod.rs`
+  </Accordion>
+</AccordionGroup>
+
+<CardGroup cols={2}>
+  <Card title="If you are building your own harness" icon="hammer" href="/book2/how-to-choose-or-build">
+    Practical decision framework for teams choosing an architecture or building from scratch.
+  </Card>
+  <Card title="Ten principles of harness engineering" icon="list-ol" href="/book1/ten-principles">
+    The condensed engineering principles from Book 1 — a complementary set of conclusions.
+  </Card>
+</CardGroup>

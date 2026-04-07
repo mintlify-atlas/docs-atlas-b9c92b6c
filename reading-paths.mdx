@@ -1,0 +1,127 @@
+---
+title: "Reading paths"
+description: "Choose where to start based on your goals — three suggested paths through both books."
+---
+
+There is no single correct starting point. Your background and what questions you want answered first should determine where you enter.
+
+## Three suggested paths
+
+<Tabs>
+  <Tab title="Start with the full frame">
+    Read Book 1 first, then Book 2.
+
+    Book 1 builds the general principles of harness engineering using Claude Code as the specimen. It explains why a controllable agent must grow organs such as a control plane, query loop, tool permissions, context governance, recovery paths, and multi-agent verification. Once you have that frame, Book 2 shows how those same design axes appear differently in Codex — which choices are consensus across serious harnesses and which are just different engineering routes.
+
+    This path gives you the strongest foundation for architectural judgment about any agent system, not only Claude Code or Codex.
+
+    <Steps>
+      <Step title="Read the Book 1 preface">
+        Establish what harness engineering means and why unstable models require designed constraint structures, not just better prompts. [Preface: Harness, Terminals, and Engineering Constraints](/book1/preface)
+      </Step>
+      <Step title="Work through Book 1 chapters 1–8">
+        Follow the runtime architecture from control plane through query loop, tool governance, context management, error recovery, multi-agent verification, and team adoption. Start at [Chapter 1: Why Harness Engineering Matters](/book1/why-harness-engineering).
+      </Step>
+      <Step title="Read Book 1 Chapter 9 for the consolidated judgment">
+        The ten principles compress the book into durable engineering positions. [Ten Principles of Harness Engineering](/book1/ten-principles)
+      </Step>
+      <Step title="Read the Book 2 reading map">
+        The reading map explains how the two books divide the problem before you start the comparison. [Reading Map](/book2/preface)
+      </Step>
+      <Step title="Work through Book 2 chapters 1–7">
+        Follow the comparison across five axes: control plane, continuity, tool governance, local institutions, and multi-agent verification. Start at [Why We Compare Claude Code and Codex](/book2/why-this-comparison).
+      </Step>
+      <Step title="Finish with Book 2 Chapter 8 if you are building">
+        If your goal is to build or evaluate your own harness, this chapter provides the most direct guidance. [If You Are Building Your Own Harness](/book2/how-to-choose-or-build)
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Already know the tools">
+    Start with Book 2 directly.
+
+    If you are already familiar with coding-agent tools — you have used Claude Code or Codex in practice — and you want the architectural comparison without going through the foundational build-up, you can enter at Book 2.
+
+    Book 2 is self-contained enough to read independently. It does reference Book 1 concepts, but the comparison chapters explain each axis as they go.
+
+    <Steps>
+      <Step title="Read the Book 2 preface">
+        Establish that this book compares where order is placed, not just feature sets. [Preface: Two Harnesses, Not One Accessory Pack](/book2/preface)
+      </Step>
+      <Step title="Read Chapter 1 to set up the problem framing">
+        [Why We Compare Claude Code and Codex](/book2/why-this-comparison)
+      </Step>
+      <Step title="Read Chapters 2–6 across the five comparison axes">
+        - [Two Control Planes: Prompt Assembly and Instruction Fragments](/book2/two-control-planes)
+        - [Where the Heartbeat Lives: Query Loop vs. Thread, Rollout, and State](/book2/loop-thread-and-rollout)
+        - [Tools, Sandboxes, and Policy Languages](/book2/tools-sandbox-and-exec-policy)
+        - [Skills, Hooks, and Local Rules](/book2/skills-hooks-and-local-governance)
+        - [Delegation, Verification, and Persistent State](/book2/delegation-verification-and-state)
+      </Step>
+      <Step title="Read Chapter 7 for the synthesis">
+        [Convergence Through Different Roads, or Separate Branches](/book2/convergence-and-divergence)
+      </Step>
+      <Step title="Return to Book 1 for any concepts you want grounded more deeply">
+        The [core concepts](/core-concepts) page links each concept to its Book 1 chapter.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Only want the conclusions">
+    Read Book 1 Chapter 9 plus Book 2 Chapter 7.
+
+    If you want the condensed engineering judgment without the full build-up, these two chapters together give you the key positions from both books.
+
+    <Steps>
+      <Step title="Read Book 1 Chapter 9">
+        Ten principles of harness engineering. These are not slogans — they come from working judgments reflected in Claude Code's engineering structure. [Ten Principles of Harness Engineering](/book1/ten-principles)
+      </Step>
+      <Step title="Read Book 2 Chapter 7">
+        Where Claude Code and Codex converge and where they diverge — what is consensus across serious harnesses and what is path-dependent choice. [Convergence and Divergence](/book2/convergence-and-divergence)
+      </Step>
+    </Steps>
+
+    <Note>
+    If the conclusions raise questions you want more grounding for, the [core concepts](/core-concepts) page maps each key idea to the chapter that develops it.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Full table of contents
+
+<AccordionGroup>
+  <Accordion title="Book 1 — Harness Engineering: A Design Guide to Claude Code" icon="book">
+    | Chapter | Topic |
+    |---------|-------|
+    | [Preface: Harness, Terminals, and Engineering Constraints](/book1/preface) | Why unstable models require designed constraint structures and what a harness actually is |
+    | [Chapter 1: Why Harness Engineering Matters](/book1/why-harness-engineering) | The five harness layers in Claude Code: control plane, query loop, tool scheduling, error paths, and recovery |
+    | [Chapter 2: Prompt Is Not Personality, Prompt Is the Control Plane](/book1/prompt-is-control-plane) | How prompts are assembled in layers to form runtime behavioral protocol, not persona decoration |
+    | [Chapter 3: Query Loop — The Heartbeat of an Agent System](/book1/query-loop-heartbeat) | How stateful multi-turn execution works and why the loop is the fundamental unit of agent runtime |
+    | [Chapter 4: Tools, Permissions, and Interrupts](/book1/tools-permissions-interrupts) | Why agents cannot touch the world directly — scheduling, authorization, and blast radius control |
+    | [Chapter 5: Context Governance — Memory, CLAUDE.md, and Compact](/book1/context-memory-compact) | Context as working memory with budget governance, not a junk drawer to fill |
+    | [Chapter 6: Errors and Recovery](/book1/errors-and-recovery) | Building agent systems that keep working after failure — recovery paths designed as first-class paths |
+    | [Chapter 7: Multi-Agent Work and Verification](/book1/multi-agent-and-verification) | Managing instability through division of labor — role partitioning and independent verification |
+    | [Chapter 8: Team Adoption](/book1/team-adoption) | Turning a smart tool into a reusable institution — CLAUDE.md, skills, hooks, and unified verification |
+    | [Chapter 9: Ten Principles of Harness Engineering](/book1/ten-principles) | The consolidated judgment across all previous chapters |
+    | [Appendix A: Checklists](/book1/checklists) | Turning principles into executable constraints |
+  </Accordion>
+
+  <Accordion title="Book 2 — The Harness Design Philosophies of Claude Code and Codex" icon="book-open">
+    | Chapter | Topic |
+    |---------|-------|
+    | [Preface: Two Harnesses, Not One Accessory Pack](/book2/preface) | Why comparing harnesses means comparing bones, not label lists |
+    | [Chapter 1: Why We Compare Claude Code and Codex](/book2/why-this-comparison) | Problem framing and why Codex is a meaningful comparison target |
+    | [Chapter 2: Two Control Planes](/book2/two-control-planes) | Prompt assembly and dynamic runtime composition versus explicit instruction fragments and typed modules |
+    | [Chapter 3: Where the Heartbeat Lives](/book2/loop-thread-and-rollout) | Query loop compared with thread, rollout, and state — how each system handles continuity |
+    | [Chapter 4: Tools, Sandboxes, and Policy Languages](/book2/tools-sandbox-and-exec-policy) | Runtime approval and interrupts versus policy language, exec policy, and explicit tool contracts |
+    | [Chapter 5: Skills, Hooks, and Local Rules](/book2/skills-hooks-and-local-governance) | How each system learns local discipline — field memory versus structured injection and event systems |
+    | [Chapter 6: Delegation, Verification, and Persistent State](/book2/delegation-verification-and-state) | Who prevents a system from grading itself — role partitioning and verification as a trackable capability |
+    | [Chapter 7: Convergence and Divergence](/book2/convergence-and-divergence) | What is consensus across both harnesses and what reflects different engineering paths |
+    | [Chapter 8: If You Are Building Your Own Harness](/book2/how-to-choose-or-build) | What to study first and which layer to anchor — including a three-path diagram for context-governance choices |
+    | [Appendix A: Checklists](/book2/checklists) | Checklist to determine where your harness sits |
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+If you are unsure which path to take, start with the [introduction](/introduction) for more context on what these books cover and who they are written for.
+</Tip>

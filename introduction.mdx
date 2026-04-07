@@ -1,0 +1,100 @@
+---
+title: "Introduction"
+description: "What these books are and who they are for — a deeper look at harness engineering and what distinguishes it from prompt engineering."
+---
+
+These two books pursue the same engineering question: once a code-writing model is placed inside terminals, repositories, permission systems, and team workflows, what keeps the overall system bounded, continuous, and accountable for consequences?
+
+The answer is not the model. It is the harness.
+
+## What harness engineering is
+
+A harness is a continuously active control structure that bounds model behavior in engineering environments. It is not an accessory layer and not emotional defense against model capability. It is the precondition for putting a model into engineering environments at all.
+
+When a model can only output text, failure mostly creates interpretation cost. When a model can run commands, write files, access networks, and modify repositories, failure leaves execution artifacts. Directories change, processes break, configuration gets damaged, and history becomes difficult to audit. At that point, the key question is no longer whether the model is smart enough — it is whether the system imposes enough constraint.
+
+Harness engineering is the discipline of designing those constraints.
+
+<Note>
+The center of gravity in harness engineering is not model capability — it is how the harness organizes constraints and execution. The goal is not a smarter model but a more governable system.
+</Note>
+
+## What distinguishes this from prompt engineering
+
+Prompt engineering is about wording. Harness engineering is about state machines.
+
+A system prompt matters, but a system prompt is part of a larger control structure: it is composed in layers, carries execution boundaries, and defines failure behavior. It sits alongside tool schemas, permission policies, session state, and recovery paths. Together those components form the control plane.
+
+Harness engineering cannot be reduced to prompt engineering because:
+
+- It governs **state across turns**, not just the quality of a single response
+- It treats **errors as a main path**, not exceptions to be handled in afterthought `catch` blocks
+- It constrains **tool execution** through scheduling, authorization, and interrupt semantics
+- It manages **context as a resource** with budget and governance, not as a junk drawer to fill
+- It encodes **team rules** into institutions that survive individual contributors
+
+> Prompt determines how it speaks. Harness determines how it acts.
+
+## Core claims
+
+These books are grounded in five engineering judgments. They are not optimistic narratives — they are the foundation the architecture is built on.
+
+1. **Harness engineering is about how constraint structures organize execution.** The interesting question is not what the model can say but how the system handles what the model does.
+
+2. **Once a code-writing model enters a real engineering environment, the main problem is no longer answer quality but behavioral consequences.** Models hit token limits, fail tools, corrupt state, and loop on errors. Systems must be designed for that reality.
+
+3. **Prompts, tools, permissions, state, recovery, verification, and institutions are not accessories around the system — they are organs in the same control structure.** Remove any one and the system loses a function it depended on without knowing it.
+
+4. **When comparing agent systems, the key question is not the feature checklist but where order is actually placed.** Two systems can both advertise skills, sandboxing, and multi-agent support while placing authority at entirely different architectural layers.
+
+5. **If a team cannot turn individual experience into reusable rules, it will struggle to turn an agent into a stable system.** Personal tricks do not scale. Institutions do.
+
+## The two books
+
+<AccordionGroup>
+  <Accordion title="Book 1: A Design Guide to Claude Code" icon="book" defaultOpen={true}>
+    The first book uses Claude Code as the observation target and concentrates on runtime structure. Its concern is why a system eventually has to grow components such as a control plane, query loop, tool permissions, context governance, recovery paths, multi-agent verification, and team rules.
+
+    Start with Book 1 if these are the questions you care about:
+
+    - Why harness engineering is not just prompt engineering at a larger scale
+    - Why prompts are fundamentally part of the control plane rather than a chat box
+    - Why model mistakes should be treated as a runtime norm rather than an exceptional event
+    - Why multi-agent work and verification should not be blended into one vague mechanism
+    - How a team can solidify personal experience into reusable engineering institutions
+
+    The book covers nine chapters, moving from the structure of the control plane through query loops, tool governance, context budgeting, error recovery, multi-agent verification, team adoption, and concluding with ten principles of harness engineering. [Start with the preface](/book1/preface).
+  </Accordion>
+
+  <Accordion title="Book 2: Comparing Claude Code and Codex" icon="book-open">
+    The second book places Claude Code and Codex side by side and asks where each harness places order. One path starts from runtime discipline; the other starts from a more structured control layer. Both systems can work, but they distribute authority differently.
+
+    Start with Book 2 if you care more about system choice, architectural judgment, or what to learn when building your own harness:
+
+    - What the biggest control-plane divergence is between Claude Code and Codex
+    - How to align the roles of query loops, threads, rollouts, and state
+    - What governance roles are played by permissions, sandboxes, and policy languages
+    - How skills, hooks, and local rules encode organizational habits into the system
+    - If you want to build your own harness, who to learn from first and which layer to study first
+
+    In one sentence: Claude Code and Codex are aligned not because they both call tools, but because neither is willing to treat the model as a free-moving executor. Their differences are more interesting than their similarities. [Start with the preface](/book2/preface).
+  </Accordion>
+</AccordionGroup>
+
+## Who these books are for
+
+These books are written for engineers and teams who are integrating AI coding agents into real workflows and have discovered that the interesting problems are not about model capability.
+
+You will find the material useful if you are:
+
+- Trying to understand why an existing agent system misbehaves despite good prompts
+- Designing the control structure for a new coding-agent deployment
+- Choosing between Claude Code, Codex, or building your own harness
+- Working to turn ad-hoc agent practices into stable team institutions
+- Studying agent system architecture and want a grounded engineering perspective
+
+These books do not reproduce Claude Code or Codex source code, and they do not narrate features line by line. The focus is on design principles, runtime mechanisms, and methodological judgments that remain valid regardless of which specific version or surface you are working with.
+
+<Tip>
+If you are new to this material, use [reading paths](/reading-paths) to choose where to start. If you want to understand the key vocabulary first, read [core concepts](/core-concepts).
+</Tip>

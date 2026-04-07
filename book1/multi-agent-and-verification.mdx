@@ -1,0 +1,167 @@
+---
+title: "Multi-agent work and verification"
+description: Managing instability through division of labor — research, implementation, verification, and synthesis as separate roles
+---
+
+Past a certain task size, the question is not "can one agent do it" but "how should work be split." Spinning up more workers does not produce order by default — it often just parallelizes single-agent disorder. The real difficulty is isolating instability per agent and then reassembling outputs coherently.
+
+Claude Code source is clear-eyed here: subagents are not "another chat window." They are managed execution processes with explicit cache boundaries, state boundaries, verification duties, and cleanup responsibilities. Multi-agent value is less about raw speed and more about placing different uncertainties in different containers and recombining them through coordinator synthesis.
+
+> **Source references**: `src/utils/forkedAgent.ts`, `src/utils/hooks/hooksConfigManager.ts`, `src/tasks/LocalAgentTask/LocalAgentTask.tsx`, `src/coordinator/coordinatorMode.ts`, `src/memdir/memoryTypes.ts`
+
+---
+
+## Agent roles
+
+<CardGroup cols={2}>
+  <Card title="Coordinator" icon="sitemap">
+    Synthesizes findings from workers and communicates with users. Directs workers for research, implementation, and verification. Answers directly when delegation is unnecessary.
+
+    The coordinator's scarce capability is recompressing distributed local knowledge into actionable and verifiable next steps. It must not forward raw findings and outsource understanding again — it must digest and convert worker outputs into concrete prompts mentioning specific files, locations, and changes.
+
+    **Source**: `src/coordinator/coordinatorMode.ts`
+  </Card>
+  <Card title="Researcher" icon="magnifying-glass">
+    Explores in local context without polluting the main thread with every tentative branch. Research misreads, temporary file observations, and exploratory reasoning branches stay isolated.
+
+    Research can be distributed and parallelized. The coordinator owns interpretation — follow-up prompts must reference concrete findings, not abstract references like "based on the above findings."
+
+    **Source**: `coordinatorMode.ts` task flow separation
+  </Card>
+  <Card title="Implementer" icon="code">
+    Focuses on edits without carrying the full communication burden. Operates within a state-isolated subagent context where mutable state changes do not propagate to the parent unless explicitly opted in.
+
+    The implementer produces code changes, but "I changed code" and "the change is correct" are separated by a wide river — completion does not equal correctness.
+
+    **Source**: `src/utils/forkedAgent.ts`, `createSubagentContext()`
+  </Card>
+  <Card title="Verifier" icon="circle-check">
+    Specializes in skepticism without defending their own edits. Proves effectiveness, not merely code existence: runs tests with the feature enabled, investigates errors instead of dismissing them as unrelated, tests independently.
+
+    Independent verification prevents "can modify code" from impersonating "can deliver outcomes."
+
+    **Source**: `coordinatorMode.ts` verification section
+  </Card>
+</CardGroup>
+
+---
+
+## Multi-agent coordination flow
+
+<Steps>
+  <Step title="Fork with cache discipline">
+    Before any persona or specialization concern, fork must preserve cache-safe parameters. `src/utils/forkedAgent.ts` defines `CacheSafeParams` explicitly:
+
+    - `systemPrompt`
+    - `userContext`
+    - `systemContext`
+    - `toolUseContext`
+    - `forkContextMessages`
+
+    If child agents re-burn parent context from scratch, what looks like parallel acceleration is parallel waste. The source also warns against casually changing `maxOutputTokens` because thinking configuration is part of cache keys.
+
+    Multi-agent is first a runtime economics problem.
+  </Step>
+  <Step title="Isolate mutable state by default">
+    `createSubagentContext()` isolates all mutable state from the parent by default:
+
+    - `readFileState` is cloned
+    - Child abort controllers are created instead of sharing parent controllers
+    - `getAppState` is wrapped to avoid permission prompts
+    - `setAppState` is a no-op by default
+    - Sets like `nestedMemoryAttachmentTriggers` and `loadedNestedMemoryPaths` are recreated
+
+    Sharing requires explicit opt-in (`shareSetAppState`, `shareSetResponseLength`, `shareAbortController`). Isolation is the default ethic — closer to transactional database design than to chat tabs.
+
+    The main value of child agents is containing local chaos away from the main thread. If research misreads and exploratory reasoning branches are blindly written back to the main context, you only accelerate contamination.
+  </Step>
+  <Step title="Research in isolated context">
+    The researcher agent explores in its local context. Tentative branches, misread signals, and intermediate tool outputs stay contained. The coordinator receives the research findings, not the raw exploratory trace.
+
+    Parallel research has clear value: different research questions can run simultaneously without competing for the same context budget or narrative thread.
+  </Step>
+  <Step title="Synthesize before delegating implementation">
+    The coordinator must synthesize research findings into concrete implementation prompts. `coordinatorMode.ts` is explicit: **always synthesize**. When workers return findings, the coordinator must digest and convert them — it must not forward raw findings and outsource understanding again.
+
+    Follow-up prompts must mention concrete files, concrete locations, and concrete changes, not abstract references. Research can be distributed; understanding must reconverge.
+  </Step>
+  <Step title="Implement in isolated context">
+    The implementer receives a concrete, synthesized prompt and operates within its own state-isolated context. Edits are focused. The implementation worker performs a self-check, but this is not sufficient for verifying correctness.
+  </Step>
+  <Step title="Verify independently">
+    Verification is a second-layer quality gate, role-separated from implementation. `coordinatorMode.ts` encodes two-layer checks: implementation worker self-check plus independent verification worker.
+
+    The verifier proves effectiveness — runs tests with the feature enabled, investigates errors instead of dismissing them as unrelated, tests independently, stays skeptical.
+  </Step>
+  <Step title="Manage lifecycle through to cleanup">
+    Spawning a subagent is the beginning, not the end. `hooksConfigManager.ts` defines `SubagentStart` and `SubagentStop` hooks. Start events include `agent_id` and `agent_type`; stop events include `agent_transcript_path` and allow exit code 2 so stderr can be fed back.
+
+    `registerAsyncAgent()` in `LocalAgentTask.tsx` gives each async agent cleanup handlers. Parent aborts propagate to child abort controllers. On completion, outputs can be evicted, state updated, and cleanup callbacks unregistered.
+
+    Agents are runtime entities that can leak resources, leave state residue, and become orphans after parent death. The system treats them accordingly.
+  </Step>
+</Steps>
+
+---
+
+## The independent verification principle
+
+<Warning>
+An agent grading its own output is not verification — it is a self-consistency check. Models are especially good at building paper bridges between "I changed code" and "the change is correct." They can provide changes, explanations, and even plausible test-like output, none of which guarantees correctness in real runtime.
+
+In agent systems, verification must be role-separated from implementation. The verifier must not have authored the implementation it is checking.
+</Warning>
+
+This principle extends beyond code. `src/memdir/memoryTypes.ts` explicitly warns that memory records can become stale. Before giving recommendations based on memory, the system must verify current state. If memory conflicts with present reality, trust the current observed state and update or delete stale memory.
+
+Verification is the system's baseline habit against both temporal drift and context drift. If a system verifies newly written code but does not verify old memory, assumptions, or indexes, history will still steer it wrong. Verification is both a skill and an institutional discipline.
+
+---
+
+## What multi-agent actually solves
+
+Put these source pieces together and Claude Code's multi-agent design reveals a simple target: **partition uncertainty**.
+
+- Research workers explore in local contexts without polluting the main thread
+- Implementation workers focus on edits without carrying full communication burden
+- Verification workers specialize in skepticism without defending their own edits
+- Coordinator sits in the middle to converge and communicate
+
+This partitioning makes failures easier to locate:
+
+- Did research miss a key signal?
+- Did synthesis fail to digest findings?
+- Did implementation introduce defects?
+- Did verification undercheck?
+
+If all of this is delegated to one agent "in one go," you get one thick soup — possibly flavorful, hard to debug.
+
+Multi-agent value is less about speed and more about placing different uncertainties in different containers and recombining them through coordinator synthesis.
+
+**The seventh principle**: multi-agent systems depend on clear division of labor — research, implementation, verification, and synthesis must run under different constraint containers, then be stitched back into deliverable outcomes by a coordinator.
+
+---
+
+## Portable engineering principles
+
+Drawn from `forkedAgent.ts`, `createSubagentContext()`, `coordinatorMode.ts`, `hooksConfigManager.ts`, and `LocalAgentTask.tsx`:
+
+- Optimize fork for cache and state boundaries before "persona specialization"
+- Isolate child agents by default; share only by explicit declaration
+- Research can be delegated; synthesis cannot
+- Verification must be role-separated from implementation
+- Agent lifecycle must be observable, interruptible, and reclaimable
+- True parallel value is clearer responsibilities, not raw speed
+
+---
+
+## Continue reading
+
+<CardGroup cols={2}>
+  <Card title="Errors and recovery" icon="circle-exclamation" href="/book1/errors-and-recovery">
+    How to build agent systems with resilient recovery paths, circuit breakers, and continuation strategies.
+  </Card>
+  <Card title="Team adoption" icon="users" href="/book1/team-adoption">
+    How CLAUDE.md, skills, approvals, hooks, and memory become reusable team institutions instead of private expert tricks.
+  </Card>
+</CardGroup>
